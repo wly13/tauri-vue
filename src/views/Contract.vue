@@ -1,6 +1,6 @@
 <template>
-  <Row gutter="16">
-    <Col :span="6">
+  <div gutter="16" class="contract-container">
+    <div class="left-container">
       <div>
         <!-- 缩放 -->
         <div>16 <span>-</span><span>+</span></div>
@@ -19,41 +19,37 @@
         <!-- 买入后持多单数量 -->
         <div>{{ orderSettings.buyOrderBatch || 0 }}</div>
         <!-- 鼠标左键下单数量 -->
-        <InputNumber
-          class="no-spin"
-          v-model:value="orderSettings.leftClickCount"
-          :min="1"
-        />
+        <div>
+          <InputNumber class="no-spin" v-model:value="orderSettings.leftClickCount" :min="1" />
+        </div>
         <!-- 鼠标右键下单数量 -->
-        <InputNumber
-          class="no-spin"
-          v-model:value="orderSettings.rightClickCount"
-          :min="1"
-        />
+        <div>
+          <InputNumber class="no-spin" v-model:value="orderSettings.rightClickCount" :min="1" />
+        </div>
         <!-- 下单模式 -->
-        <RadioGroup v-model:value="orderSettings.modeA">
-          <Radio value="A">A模式单点位挂单</Radio>
-          <Radio value="B">B模式多点位挂单</Radio>
+        <RadioGroup class="radio-group" v-model:value="orderSettings.modeA">
+          <Radio value="A">A</Radio></br>
+          <Radio value="B">B</Radio>
         </RadioGroup>
       </div>
       <div>
         <!-- 一键跑单 -->
-        <Checkbox v-model:checked="orderSettings.isAutoRun" /> 金
+        <div>
+          <Checkbox v-model:checked="orderSettings.isAutoRun">金</Checkbox>
+        </div>
         <!-- 撤单上限 -->
-        <RadioGroup v-model:value="orderSettings.limit">
+        <RadioGroup class="radio-group" v-model:value="orderSettings.limit">
           <Radio value="1">CLimit 345</Radio>
           <Radio value="0">CLimit 550</Radio>
           <Radio value="2">no limit</Radio>
         </RadioGroup>
         <!-- 防连点 -->
         <div>
-          <Checkbox v-model:checked="orderSettings.preventRapidOrder"
-            >No Combo</Checkbox
-          >
+          <Checkbox v-model:checked="orderSettings.preventRapidOrder">No Combo</Checkbox>
         </div>
         <!-- 涨跌停锁 -->
         <div>
-          <Checkbox v-model:checked="orderSettings.lockLimit" /> Lock Limit
+          <Checkbox v-model:checked="orderSettings.lockLimit">Lock Limit</Checkbox>
         </div>
         <!-- 涨跌停价位 -->
         <div>涨停：0</div>
@@ -65,11 +61,11 @@
         <div>0</div>
         <strong>P</strong>
       </div>
-    </Col>
-    <Col :span="18">
+    </div>
+    <div class="right-container">
       <Table :columns="columns" :data="data" />
-    </Col>
-  </Row>
+    </div>
+  </div>
 </template>
 
 <script setup>
@@ -101,3 +97,28 @@ const positionInfo = ref({
   /* ... */
 });
 </script>
+<style scoped lang="less">
+.contract-container {
+  display: flex;
+
+  .left-container {
+    width: 100px;
+
+    .no-spin {
+      :deep(.ant-input-number-handler-wrap) {
+        display: none;
+      }
+    }
+  }
+
+  .right-container {
+    flex: 1;
+  }
+
+  .radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+}
+</style>

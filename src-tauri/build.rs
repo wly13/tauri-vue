@@ -507,6 +507,9 @@ fn generated() {
 }
 
 fn main() {
+    let mut res = winres::WindowsResource::new();
+    res.set_manifest_file("app.manifest");
+    res.compile().unwrap();
     // 生成c++->C->Rust实现
     generated();
 
@@ -529,8 +532,8 @@ fn main() {
     let so_path = format!("{}/{}/{}_{}", ctp_path, ctp_version, platform, arch);
 
     let library_path = Path::new(&so_path);
-    // println!("cargo:rustc-link-search={}",so_path);
-    // println!("cargo:rustc-link-search=native={}", library_path.display());
+    println!("cargo:rustc-link-search={}", so_path);
+    println!("cargo:rustc-link-search=native={}", library_path.display());
 
     // 平台差异化处理
     if cfg!(windows) {
@@ -568,7 +571,7 @@ fn main() {
 
     // 告诉 cargo 当 wrapper.h 变化时重新运行，只有结构使用wrapper.h, 包含类定义使用wrapper.cpp
     println!("cargo:rerun-if-changed=wrapper.hpp");
-    println!("cargo:rustc-link-lib=dylib=stdc++");
+    // println!("cargo:rustc-link-lib=dylib=stdc++");
 
     // 配置 bindgen，并生成 Bindings 结构
     let bindings = bindgen::Builder::default()
@@ -622,18 +625,21 @@ fn copy_lib_to(so_path: &String, so_filename: &String) {
     }
     #[cfg(unix)]
     {
-        std::os::unix::fs::symlink(
+        use std::os::unix::fs::symlink;
+        symlink(
             &format!("{}/{}/{}", current_dir, so_path, so_filename),
             so_symlink,
         )
-        .expect("failed to create new symlink");
+        .unwrap();
     }
-    #[cfg(not(unix))]
+
+    #[cfg(windows)]
     {
-        std::fs::copy(
+        use std::os::windows::fs::symlink_file;
+        symlink_file(
             &format!("{}/{}/{}", current_dir, so_path, so_filename),
             so_symlink,
         )
-        .expect("failed to create new symlink");
+        .unwrap();
     }
 }

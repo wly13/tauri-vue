@@ -1,12 +1,10 @@
 <template>
   <StyleProvider>
-    <main class="container">
-      <router-view />
-    </main>
+    <div>112233</div>
   </StyleProvider>
 </template>
 <script setup lang="ts">
-import { StyleProvider } from 'ant-design-vue';
+import { StyleProvider } from "ant-design-vue";
 </script>
 
 <style>
@@ -16,7 +14,6 @@ body {
   width: 100%;
   margin: 0;
   padding: 0;
-
 }
 
 div,

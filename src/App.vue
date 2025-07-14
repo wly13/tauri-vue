@@ -1,6 +1,6 @@
 <template>
   <StyleProvider>
-    <div>112233</div>
+    <router-view></router-view>
   </StyleProvider>
 </template>
 <script setup lang="ts">

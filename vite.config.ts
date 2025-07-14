@@ -19,7 +19,7 @@ export default defineConfig(async () => ({
       deleteOriginFile: false, //压缩后是否删除源文件
     }),
     visualizer({
-      open: true, //build后，是否自动打开分析页面，默认false
+      open: false, //build后，是否自动打开分析页面，默认false
       gzipSize: true, //是否分析gzip大小
       brotliSize: true, //是否分析brotli大小
       //filename: 'stats.html'//分析文件命名

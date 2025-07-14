@@ -596,6 +596,7 @@ fn main() {
     bindings
         .write_to_file(&binding_file)
         .expect("Couldn't write bindings!");
+    tauri_build::build();
 }
 
 ///

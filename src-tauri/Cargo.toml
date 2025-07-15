@@ -25,7 +25,7 @@ clang = "2.0.0"
 encoding = "0.2.33"
 Inflector = "0.11.4"
 libc = { version = "0.2.39", default-features = false }
-winres = "0.1"
+# winres = "0.1"  # 注释掉，因为与 tauri_build 冲突
 
 [dependencies]
 tauri = { version = "2", features = [] }
@@ -43,6 +43,7 @@ time = "0.1.43"
 serde_derive = "1.0.117"
 futures = "0.3.5"
 bincode = { version = "2.0.0-rc.2", features = ["derive"] }
+lazy_static = "1.4"
 
 # [dev-dependencies]
 tracing = "0.1.34"

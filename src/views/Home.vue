@@ -1,8 +1,27 @@
 <template>
   <div>
-    <h1>Home</h1>
-    <div v-for="(item, index) in 10" :key="index" @click="openWindow(index)">
-      打开{{ index }} 窗口
+    <h1>Tauri Vue CTP 应用</h1>
+
+    <div class="navigation">
+      <h2>页面导航</h2>
+      <div class="nav-links">
+        <router-link to="/tauri-test" class="nav-link">Tauri 环境测试</router-link>
+        <router-link to="/tauri-debug" class="nav-link">Tauri 调试工具</router-link>
+        <router-link to="/ctp" class="nav-link">CTP 交易接口</router-link>
+        <router-link to="/login" class="nav-link">登录页面</router-link>
+        <router-link to="/contract" class="nav-link">合约页面</router-link>
+        <router-link to="/screenshot" class="nav-link">截图功能</router-link>
+        <router-link to="/trading-panel" class="nav-link">交易面板</router-link>
+        <router-link to="/price-board" class="nav-link">价格面板</router-link>
+        <router-link to="/about" class="nav-link">关于页面</router-link>
+      </div>
+    </div>
+
+    <div class="window-demo">
+      <h2>窗口演示</h2>
+      <div v-for="(item, index) in 5" :key="index" @click="openWindow(index)" class="window-item">
+        打开窗口 {{ index }}
+      </div>
     </div>
   </div>
 </template>
@@ -41,4 +60,56 @@ const openWindow = async (index: number) => {
 };
 </script>
 
-<style scoped></style>
+<style scoped>
+.navigation {
+  margin-bottom: 30px;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #f9f9f9;
+}
+
+.nav-links {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.nav-link {
+  padding: 10px 20px;
+  background: #007bff;
+  color: white;
+  text-decoration: none;
+  border-radius: 4px;
+  transition: background 0.3s;
+}
+
+.nav-link:hover {
+  background: #0056b3;
+}
+
+.nav-link.router-link-active {
+  background: #28a745;
+}
+
+.window-demo {
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #f9f9f9;
+}
+
+.window-item {
+  padding: 10px;
+  margin: 5px 0;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.window-item:hover {
+  background: #e9ecef;
+}
+</style>

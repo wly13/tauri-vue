@@ -507,9 +507,10 @@ fn generated() {
 }
 
 fn main() {
-    let mut res = winres::WindowsResource::new();
-    res.set_manifest_file("app.manifest");
-    res.compile().unwrap();
+    // 注释掉 winres，因为 tauri_build 会处理版本资源
+    // let mut res = winres::WindowsResource::new();
+    // res.set_manifest_file("app.manifest");
+    // res.compile().unwrap();
 
     // 生成c++->C->Rust实现
     // 开发模式下，不频繁生成文件，不然会导致一直无法编译完成

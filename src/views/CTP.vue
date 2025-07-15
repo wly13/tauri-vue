@@ -160,11 +160,26 @@ const orderForm = reactive({
 // 日志
 const logs = ref<LogEntry[]>([])
 
+// 检查 Tauri 环境 - 使用 Tauri 2.0 推荐的检测方式
+const checkTauriEnvironment = async () => {
+  try {
+    // Tauri 2.0 推荐的检测方式：尝试导入 Tauri API
+    const { invoke } = await import('@tauri-apps/api/core')
+
+    // 如果能成功导入并调用，说明在 Tauri 环境中
+    await invoke('get_api_version') // 测试调用一个已知的命令
+    isTauriEnv.value = true
+  } catch (error) {
+    // 如果导入失败或调用失败，可能不在 Tauri 环境中
+    isTauriEnv.value = false
+    console.log('Not in Tauri environment:', error)
+  }
+}
+
 // 生命周期钩子
-onMounted(() => {
+onMounted(async () => {
   // 检查 Tauri 环境
-  isTauriEnv.value = typeof window !== 'undefined' &&
-                     typeof (window as any).__TAURI__ !== 'undefined'
+  await checkTauriEnvironment()
 
   // 监听服务事件
   ctpService.on('log', (logEntry: LogEntry) => {

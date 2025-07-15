@@ -67,44 +67,51 @@ const status = ref({
   canInvoke: false
 })
 
-// 检测环境
+// 检测环境 - 使用 Tauri 2.0 推荐的检测方式
 const detectEnvironment = async () => {
   const info: any = {
     timestamp: new Date().toISOString(),
     userAgent: navigator.userAgent,
     location: window.location.href,
     windowTauri: typeof (window as any).__TAURI__,
+    detectionMethod: 'ES Module Import (Tauri 2.0 recommended)',
+    note: 'Using @tauri-apps/api instead of window.__TAURI__'
   }
 
-  // 检查 window.__TAURI__
+  // 检查 window.__TAURI__ (仅用于调试信息)
   status.value.hasWindowTauri = typeof (window as any).__TAURI__ !== 'undefined'
   if (status.value.hasWindowTauri) {
     info.windowTauriContent = Object.keys((window as any).__TAURI__ || {})
   }
 
-  // 尝试导入 API
+  // 尝试导入 API - Tauri 2.0 推荐的检测方式
   try {
     const { invoke } = await import('@tauri-apps/api/core')
     status.value.canImportApi = true
     info.apiImport = 'success'
-    
-    // 尝试调用命令
+
+    // 尝试调用命令 - 这是最可靠的 Tauri 环境检测方式
     try {
       const result = await invoke('get_api_version')
       status.value.canInvoke = true
-      status.value.isTauri = true
+      status.value.isTauri = true // 只有在能成功调用 API 时才认为在 Tauri 环境中
       info.invokeTest = { success: true, result }
+      info.environment = 'Tauri 2.0'
     } catch (invokeError) {
-      info.invokeTest = { 
-        success: false, 
-        error: invokeError instanceof Error ? invokeError.message : String(invokeError) 
+      status.value.isTauri = false
+      info.invokeTest = {
+        success: false,
+        error: invokeError instanceof Error ? invokeError.message : String(invokeError)
       }
+      info.environment = 'Not Tauri or Tauri API unavailable'
     }
   } catch (importError) {
-    info.apiImport = { 
-      success: false, 
-      error: importError instanceof Error ? importError.message : String(importError) 
+    status.value.isTauri = false
+    info.apiImport = {
+      success: false,
+      error: importError instanceof Error ? importError.message : String(importError)
     }
+    info.environment = 'Not Tauri or Tauri API unavailable'
   }
 
   debugInfo.value = JSON.stringify(info, null, 2)

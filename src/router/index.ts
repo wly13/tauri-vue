@@ -11,7 +11,7 @@ import TradingPanel from '../views/TradingPanel.vue'
 import PriceBoard from '../views/PriceBoard.vue'
 
 const routes = [
-    { path: '/', name: 'TradingPanel', component: TradingPanel },
+    { path: '/', name: 'Index', component: Home },
     { path: '/home', name: 'Home', component: Home },
     { path: '/login', name: 'Login', component: Login },
     { path: '/contract', name: 'Contract', component: Contract },

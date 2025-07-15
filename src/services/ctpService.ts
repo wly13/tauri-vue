@@ -9,15 +9,25 @@ import {
   LogLevel
 } from '../types/ctp';
 
-// 检查是否在 Tauri 环境中
-function isTauriEnvironment(): boolean {
-  return typeof window !== 'undefined' &&
-         typeof (window as any).__TAURI__ !== 'undefined';
+// 检查是否在 Tauri 环境中 - 使用 Tauri 2.0 推荐的检测方式
+async function isTauriEnvironment(): Promise<boolean> {
+  try {
+    // Tauri 2.0 推荐的检测方式：尝试导入 Tauri API
+    const { invoke } = await import('@tauri-apps/api/core');
+
+    // 如果能成功导入并调用，说明在 Tauri 环境中
+    await invoke('get_api_version'); // 测试调用一个已知的命令
+    return true;
+  } catch (error) {
+    // 如果导入失败或调用失败，可能不在 Tauri 环境中
+    return false;
+  }
 }
 
 // 安全的 invoke 函数
 async function safeInvoke(command: string, args?: any): Promise<any> {
-  if (!isTauriEnvironment()) {
+  const isTauri = await isTauriEnvironment();
+  if (!isTauri) {
     throw new Error('Not running in Tauri environment. Please run the application through Tauri.');
   }
 

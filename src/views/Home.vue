@@ -27,37 +27,63 @@
 </template>
 
 <script setup lang="ts">
-import { invoke } from "@tauri-apps/api/core";
-import {
-  WebviewWindow,
-  getAllWebviewWindows,
-} from "@tauri-apps/api/webviewWindow";
+import { ref } from 'vue'
+
+const isTauri = ref(false)
+
+// 检查 Tauri 环境
+const checkTauriEnvironment = async () => {
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    await invoke('get_api_version')
+    isTauri.value = true
+  } catch (error) {
+    isTauri.value = false
+    console.log('Not in Tauri environment:', error)
+  }
+}
 
 const openWindow = async (index: number) => {
-  const window = new WebviewWindow(`window-${index}`, {
-    title: `窗口${index}`,
-    url: `/#/about`,
-    width: 200,
-    height: 200,
-    x: 100,
-    y: 100,
-  });
-  window.once("tauri://created", () => {
-    console.log("窗口创建成功");
-  });
-  window.once("tauri://error", (event) => {
-    console.log("窗口创建失败", event);
-  });
-  window.once("tauri://close", () => {
-    console.log("窗口关闭");
-  });
-  window.once("tauri://focus", () => {
-    console.log("窗口聚焦");
-  });
-  window.once("tauri://blur", () => {
-    console.log("窗口失去焦点");
-  });
+  if (!isTauri.value) {
+    alert('窗口功能仅在 Tauri 应用中可用')
+    return
+  }
+
+  try {
+    const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow')
+
+    const window = new WebviewWindow(`window-${index}`, {
+      title: `窗口${index}`,
+      url: `/#/about`,
+      width: 200,
+      height: 200,
+      x: 100,
+      y: 100,
+    });
+
+    window.once("tauri://created", () => {
+      console.log("窗口创建成功");
+    });
+    window.once("tauri://error", (event) => {
+      console.log("窗口创建失败", event);
+    });
+    window.once("tauri://close", () => {
+      console.log("窗口关闭");
+    });
+    window.once("tauri://focus", () => {
+      console.log("窗口聚焦");
+    });
+    window.once("tauri://blur", () => {
+      console.log("窗口失去焦点");
+    });
+  } catch (error) {
+    console.error('创建窗口失败:', error)
+    alert('创建窗口失败')
+  }
 };
+
+// 在组件挂载时检查环境
+checkTauriEnvironment()
 </script>
 
 <style scoped>

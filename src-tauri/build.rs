@@ -510,8 +510,16 @@ fn main() {
     let mut res = winres::WindowsResource::new();
     res.set_manifest_file("app.manifest");
     res.compile().unwrap();
+
     // 生成c++->C->Rust实现
-    generated();
+    // 开发模式下，不频繁生成文件，不然会导致一直无法编译完成
+    if cfg!(debug_assertions) {
+
+        println!("Running in development mode");
+    } else {
+        println!("Running in release mode");
+        generated();
+    }
 
     // 库配置
     // ctp 所在目录名称

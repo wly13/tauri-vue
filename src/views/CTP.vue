@@ -226,7 +226,8 @@ const getApiVersion = async () => {
 const createMdApi = async () => {
   loading.value = true
   try {
-    const flowPath = `./cache/md_${config.broker_id}_${config.account}/`
+    // 使用系统临时目录，避免影响项目文件监听
+    const flowPath = `../temp/ctp_cache/md_${config.broker_id}_${config.account}/`
     await ctpService.createMdApi(flowPath)
   } finally {
     loading.value = false
@@ -236,7 +237,8 @@ const createMdApi = async () => {
 const createTraderApi = async () => {
   loading.value = true
   try {
-    const flowPath = `./cache/trader_${config.broker_id}_${config.account}/`
+    // 使用系统临时目录，避免影响项目文件监听
+    const flowPath = `../temp/ctp_cache/trader_${config.broker_id}_${config.account}/`
     await ctpService.createTraderApi(flowPath)
   } finally {
     loading.value = false

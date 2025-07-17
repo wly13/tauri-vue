@@ -24,3 +24,9 @@ dist-ssr
 *.sw?
 
 stats.html
+
+# CTP 缓存文件
+src-tauri/ctp_cache/
+ctp_cache/
+*.flow
+*.con

@@ -27,18 +27,39 @@ pub fn get_api_version() -> Option<String> {
 pub mod md_api {
     use crate::*;
     include!("md_impl.rs");
+
     pub fn create_api(
         flow_path: &str,
         b_is_using_udp: bool,
         b_is_multicast: bool,
     ) -> Box<CThostFtdcMdApi> {
-        let md_flow_path = std::ffi::CString::new(flow_path).unwrap();
+        // 验证输入参数
+        if flow_path.is_empty() {
+            panic!("Flow path cannot be empty");
+        }
+
+        // 确保路径是有效的 UTF-8 字符串
+        let md_flow_path = match std::ffi::CString::new(flow_path) {
+            Ok(path) => path,
+            Err(e) => panic!("Invalid flow path: {}", e),
+        };
+
+        println!("🔍 [DEBUG] Calling CThostFtdcMdApi_CreateFtdcMdApi with path: {}", flow_path);
+
         unsafe {
-            Box::from_raw(CThostFtdcMdApi_CreateFtdcMdApi(
+            let raw_ptr = CThostFtdcMdApi_CreateFtdcMdApi(
                 md_flow_path.as_ptr(),
                 b_is_using_udp,
                 b_is_multicast,
-            ))
+            );
+
+            // 检查返回的指针是否为空
+            if raw_ptr.is_null() {
+                panic!("CThostFtdcMdApi_CreateFtdcMdApi returned null pointer");
+            }
+
+            println!("✅ [DEBUG] CThostFtdcMdApi_CreateFtdcMdApi returned valid pointer");
+            Box::from_raw(raw_ptr)
         }
     }
 }

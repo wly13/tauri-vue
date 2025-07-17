@@ -14,6 +14,17 @@
         </div>
 
         <div class="time-display">{{ currentTime }}</div>
+
+        <!-- CTP 连接状态 -->
+        <div class="ctp-status">
+          <div class="status-item">
+            <span class="status-label">行情:</span>
+            <span :class="['status-value', getStatusClass(ctpService.getMdStatus())]">
+              {{ getStatusText(ctpService.getMdStatus()) }}
+            </span>
+          </div>
+        </div>
+
         <div class="price-change negative">{{ priceChangePercent }}%</div>
         <div class="volume-info">{{ totalVolume }}</div>
         <div class="position-info">{{ totalPosition }}</div>
@@ -174,6 +185,9 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { CtpService } from '../services/ctpService'
+import { UserStorageService } from '../services/userStorage'
+import { MarketDataInfo } from '../types/ctp'
 
 interface OrderData {
   price: number
@@ -190,7 +204,9 @@ interface SelectedCell {
   index: number
 }
 
-// 移除登录相关接口和数据
+// CTP服务实例
+const ctpService = new CtpService()
+const marketData = ref<MarketDataInfo | null>(null)
 
 // 交易相关
 const selectedCell = ref<SelectedCell | null>(null)
@@ -518,14 +534,167 @@ const handleKeydown = (event: KeyboardEvent) => {
   }
 }
 
+// 初始化 CTP 连接和行情数据
+const initMarketData = async () => {
+  try {
+    console.log('🔍 开始初始化 CTP 行情服务...')
+
+    // 1. 检查 MD API 状态
+    const mdStatus = ctpService.getMdStatus()
+    console.log('当前 MD 状态:', mdStatus)
+
+    if (mdStatus === 'disconnected') {
+      console.log('🔧 创建 MD API...')
+      // 创建 MD API
+      const createResult = await ctpService.createMdApi()
+      if (!createResult.success) {
+        console.error('❌ 创建 MD API 失败:', createResult.error)
+        startMockMarketData()
+        return
+      }
+      console.log('✅ MD API 创建成功')
+    }
+
+    // 2. 订阅行情数据
+    console.log('🔧 订阅 rb2509 合约行情...')
+    const result = await ctpService.subscribeMarketData(['rb2509'])
+    if (result.success) {
+      console.log('✅ 订阅行情成功:', result.data)
+    } else {
+      console.error('❌ 订阅行情失败:', result.error)
+      // 如果订阅失败，使用模拟数据
+      console.log('🔄 使用模拟行情数据')
+      startMockMarketData()
+      return
+    }
+
+    // 3. 监听行情数据更新
+    ctpService.on('market_data', (data: MarketDataInfo) => {
+      if (data.instrument_id === 'rb2509') {
+        console.log('📈 收到行情数据:', data)
+        marketData.value = data
+        updatePricesFromMarketData(data)
+      }
+    })
+
+  } catch (error) {
+    console.error('❌ 初始化行情数据失败:', error)
+    // 启动模拟数据作为备选方案
+    startMockMarketData()
+  }
+}
+
+// 模拟行情数据（当真实行情不可用时）
+const startMockMarketData = () => {
+  console.log('🎭 启动模拟行情数据')
+
+  const updateMockData = () => {
+    const basePrice = 3500
+    const variation = (Math.random() - 0.5) * 20
+    const currentPrice = basePrice + variation
+
+    const mockData: MarketDataInfo = {
+      instrument_id: 'rb2509',
+      last_price: currentPrice,
+      volume: Math.floor(Math.random() * 10000) + 1000,
+      turnover: currentPrice * (Math.floor(Math.random() * 10000) + 1000),
+      open_interest: Math.floor(Math.random() * 100000) + 50000,
+      pre_close_price: basePrice - 10,
+      pre_settlement_price: basePrice - 5,
+      pre_open_interest: 45000,
+      open_price: basePrice + (Math.random() - 0.5) * 10,
+      highest_price: currentPrice + Math.random() * 10,
+      lowest_price: currentPrice - Math.random() * 10,
+      upper_limit_price: basePrice + 200,
+      lower_limit_price: basePrice - 200,
+      settlement_price: currentPrice,
+      currency_id: 'CNY',
+      bid_price1: currentPrice - 1,
+      bid_volume1: Math.floor(Math.random() * 100) + 10,
+      ask_price1: currentPrice + 1,
+      ask_volume1: Math.floor(Math.random() * 100) + 10,
+      update_time: new Date().toLocaleTimeString(),
+      update_millisec: Date.now() % 1000,
+      action_day: new Date().toISOString().split('T')[0].replace(/-/g, '')
+    }
+
+    marketData.value = mockData
+    updatePricesFromMarketData(mockData)
+  }
+
+  // 每秒更新一次模拟数据
+  setInterval(updateMockData, 1000)
+  updateMockData() // 立即更新一次
+}
+
+// CTP 状态处理函数
+const getStatusText = (status: string) => {
+  switch (status) {
+    case 'disconnected': return '未连接'
+    case 'connecting': return '连接中'
+    case 'connected': return '已连接'
+    case 'login_success': return '已登录'
+    case 'login_failed': return '登录失败'
+    case 'error': return '错误'
+    default: return '未知'
+  }
+}
+
+const getStatusClass = (status: string) => {
+  switch (status) {
+    case 'login_success': return 'status-success'
+    case 'connected': return 'status-warning'
+    case 'connecting': return 'status-info'
+    case 'login_failed':
+    case 'error': return 'status-error'
+    default: return 'status-default'
+  }
+}
+
+// 根据行情数据更新价格
+const updatePricesFromMarketData = (data: MarketDataInfo) => {
+  if (!data) return
+
+  // 更新当前价格
+  currentPrice.value = data.last_price
+
+  // 更新买盘数据
+  if (data.bid_price1 && data.bid_volume1) {
+    const bidIndex = buyOrders.value.findIndex((item: OrderData) => Math.abs(item.price - data.bid_price1) < 0.01)
+    if (bidIndex !== -1) {
+      buyOrders.value[bidIndex].buyVolume = data.bid_volume1
+    }
+  }
+
+  // 更新卖盘数据
+  if (data.ask_price1 && data.ask_volume1) {
+    const askIndex = sellOrders.value.findIndex((item: OrderData) => Math.abs(item.price - data.ask_price1) < 0.01)
+    if (askIndex !== -1) {
+      sellOrders.value[askIndex].sellVolume = data.ask_volume1
+    }
+  }
+
+  // 更新成交量和持仓量
+  totalVolume.value = data.volume
+  totalPosition.value = data.open_interest
+}
+
 // 组件挂载和卸载时的事件监听
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown)
   updateTime() // 组件挂载时开始更新时间
+
+  // 初始化行情数据
+  initMarketData()
 })
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown)
+
+  // 取消订阅行情数据
+  ctpService.unsubscribeMarketData(['rb2509']).catch(error => {
+    console.error('取消订阅行情失败:', error)
+  })
 })
 </script>
 
@@ -869,6 +1038,58 @@ onUnmounted(() => {
   background: #006600 !important;
   color: white !important;
   font-weight: bold;
+}
+
+/* CTP 状态样式 */
+.ctp-status {
+  margin: 8px 0;
+  padding: 4px;
+  background: #f5f5f5;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.status-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.status-label {
+  color: #666;
+  font-weight: normal;
+}
+
+.status-value {
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+.status-success {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-warning {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status-info {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+.status-error {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.status-default {
+  background: #e2e3e5;
+  color: #383d41;
 }
 
 

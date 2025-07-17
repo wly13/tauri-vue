@@ -49,7 +49,16 @@ export default defineConfig(async () => ({
       : undefined,
     watch: {
       // 3. tell vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
+      ignored: [
+        "**/src-tauri/**",        // 忽略 src-tauri 目录
+        "**/ctp_cache/**",        // 忽略 CTP 缓存目录
+        "**/target/**",           // 忽略 Rust 编译目录
+        "**/*.log",               // 忽略日志文件
+        "**/crash.log",           // 忽略崩溃日志
+        "**/flow/**",             // 忽略可能的流文件目录
+        "**/*.con",               // 忽略 CTP 连接文件
+        "**/*.dat",               // 忽略 CTP 数据文件
+      ],
     },
   },
 }));

@@ -8,6 +8,7 @@
         <router-link to="/tauri-test" class="nav-link">Tauri 环境测试</router-link>
         <router-link to="/tauri-debug" class="nav-link">Tauri 调试工具</router-link>
         <router-link to="/ctp" class="nav-link">CTP 交易接口</router-link>
+        <router-link to="/ctp-test" class="nav-link">CTP 连接测试</router-link>
         <router-link to="/login" class="nav-link">登录页面</router-link>
         <router-link to="/contract" class="nav-link">合约页面</router-link>
         <router-link to="/screenshot" class="nav-link">截图功能</router-link>

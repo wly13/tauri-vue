@@ -10,6 +10,7 @@ fn main() {
             file_io::write_file,
             ctp_commands::get_api_version,
             ctp_commands::create_md_api,
+            ctp_commands::release_md_api,
             ctp_commands::create_trader_api,
             ctp_commands::md_login,
             ctp_commands::trader_login,

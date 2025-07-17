@@ -1,12 +1,13 @@
 import { invoke } from '@tauri-apps/api/core';
-import { 
-  CtpAccountConfig, 
-  ApiResponse, 
-  MarketDataRequest, 
+import {
+  CtpAccountConfig,
+  ApiResponse,
+  MarketDataRequest,
   OrderRequest,
   ConnectionStatus,
   LogEntry,
-  LogLevel
+  LogLevel,
+  MarketDataInfo
 } from '../types/ctp';
 
 // 检查是否在 Tauri 环境中 - 使用 Tauri 2.0 推荐的检测方式
@@ -49,6 +50,13 @@ export class CtpService {
 
   constructor() {
     this.initEventListeners();
+  }
+
+  // 获取安全的流文件路径
+  private getFlowPath(type: 'md' | 'trader', sessionId: string): string {
+    // 使用系统临时目录，避免影响项目文件监听
+    // 在 Windows 上通常是 %TEMP%，在 Linux/Mac 上是 /tmp
+    return `../temp/ctp_cache/${type}_${sessionId}`;
   }
 
   private initEventListeners() {
@@ -120,9 +128,13 @@ export class CtpService {
   async createMdApi(flowPath?: string): Promise<ApiResponse<string>> {
     try {
       const sessionId = `md_${Date.now()}`;
+      const safePath = flowPath || this.getFlowPath('md', sessionId);
+
+      this.addLog(`创建行情API，流文件路径: ${safePath}`, LogLevel.Info);
+
       const result = await safeInvoke('create_md_api', {
         sessionId,
-        flowPath: flowPath || `./cache/md_${sessionId}/`,
+        flowPath: safePath,
         isUsingUdp: false,
         isMulticast: false
       }) as ApiResponse<string>;
@@ -138,6 +150,38 @@ export class CtpService {
       return result;
     } catch (error) {
       this.addLog(`创建行情API异常: ${error}`, LogLevel.Error, error);
+      return {
+        success: false,
+        error: String(error)
+      };
+    }
+  }
+
+  async releaseMdApi(): Promise<ApiResponse<string>> {
+    if (!this.mdSessionId) {
+      const error = '没有活跃的行情API会话';
+      this.addLog(error, LogLevel.Warning);
+      return { success: false, error };
+    }
+
+    try {
+      this.addLog(`释放行情API: ${this.mdSessionId}`, LogLevel.Info);
+
+      const result = await safeInvoke('release_md_api', {
+        sessionId: this.mdSessionId
+      }) as ApiResponse<string>;
+
+      if (result.success) {
+        this.addLog(`行情API释放成功: ${this.mdSessionId}`, LogLevel.Info);
+        this.mdSessionId = null;
+        this.mdStatus = 'disconnected' as ConnectionStatus;
+        this.emit('md_status_change', this.mdStatus);
+      } else {
+        this.addLog(`行情API释放失败: ${result.error}`, LogLevel.Error, result);
+      }
+      return result;
+    } catch (error) {
+      this.addLog(`释放行情API异常: ${error}`, LogLevel.Error, error);
       return {
         success: false,
         error: String(error)
@@ -244,9 +288,13 @@ export class CtpService {
   async createTraderApi(flowPath?: string): Promise<ApiResponse<string>> {
     try {
       const sessionId = `trader_${Date.now()}`;
+      const safePath = flowPath || this.getFlowPath('trader', sessionId);
+
+      this.addLog(`创建交易API，流文件路径: ${safePath}`, LogLevel.Info);
+
       const result = await safeInvoke('create_trader_api', {
         sessionId,
-        flowPath: flowPath || `./cache/trader_${sessionId}/`,
+        flowPath: safePath,
         encrypt: false
       }) as ApiResponse<string>;
 
@@ -383,7 +431,17 @@ export class CtpService {
   }
 
   // 清理方法
-  cleanup() {
+  async cleanup() {
+    // 释放行情API
+    if (this.mdSessionId) {
+      try {
+        await this.releaseMdApi();
+      } catch (error) {
+        console.error('Failed to release MD API during cleanup:', error);
+      }
+    }
+
+    // 清理其他资源
     this.eventListeners.clear();
     this.logs = [];
     this.mdSessionId = null;

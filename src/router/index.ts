@@ -10,6 +10,7 @@ import Screenshot from '../views/Screenshot.vue'
 import TradingPanel from '../views/TradingPanel.vue'
 import PriceBoard from '../views/PriceBoard.vue'
 import CtpTest from '../views/CtpTest.vue'
+import ServerConfig from '../views/ServerConfig.vue'
 
 const routes = [
     { path: '/', name: 'Index', component: Home },
@@ -24,6 +25,7 @@ const routes = [
     { path: '/screenshot', name: 'Screenshot', component: Screenshot },
     { path: '/trading-panel', name: 'TradingPanelAlt', component: TradingPanel },
     { path: '/price-board', name: 'PriceBoard', component: PriceBoard },
+    { path: '/server-config', name: 'ServerConfig', component: ServerConfig },
 ]
 
 const router = createRouter({

@@ -1,5 +1,6 @@
 // 用户信息存储服务
 import { CtpAccountConfig } from '../types/ctp';
+import { CtpConfigManager } from '../config/ctpConfig';
 
 export interface UserInfo {
   account: string;
@@ -11,9 +12,6 @@ export interface UserInfo {
 
 export class UserStorageService {
   private static readonly STORAGE_KEY = 'ctp_user_info';
-  private static readonly BROKER_ID = '9999';
-  private static readonly TRADE_FRONT = 'tcp://182.254.243.31:30001';
-  private static readonly MARKET_FRONT = 'tcp://182.254.243.31:30011';
 
   // 保存用户信息
   static saveUserInfo(userInfo: UserInfo): void {
@@ -58,29 +56,31 @@ export class UserStorageService {
 
   // 转换为CTP配置
   static toCtpConfig(userInfo: UserInfo): CtpAccountConfig {
+    const serverConfig = CtpConfigManager.getCurrentServerConfig();
     return {
-      broker_id: this.BROKER_ID,
+      broker_id: serverConfig.brokerId,
       account: userInfo.account,
       password: userInfo.password,
-      trade_front: this.TRADE_FRONT,
-      md_front: this.MARKET_FRONT,
-      auth_code: '',
-      user_product_info: 'TauriApp',
-      app_id: 'TauriApp_1.0'
+      trade_front: serverConfig.tradeFront,
+      md_front: serverConfig.marketFront,
+      auth_code: serverConfig.authCode || '',
+      user_product_info: serverConfig.userProductInfo || 'TauriApp',
+      app_id: serverConfig.appId || 'TauriApp_1.0'
     };
   }
 
   // 获取默认配置
   static getDefaultConfig(): CtpAccountConfig {
+    const serverConfig = CtpConfigManager.getCurrentServerConfig();
     return {
-      broker_id: this.BROKER_ID,
+      broker_id: serverConfig.brokerId,
       account: '',
       password: '',
-      trade_front: this.TRADE_FRONT,
-      md_front: this.MARKET_FRONT,
-      auth_code: '',
-      user_product_info: 'TauriApp',
-      app_id: 'TauriApp_1.0'
+      trade_front: serverConfig.tradeFront,
+      md_front: serverConfig.marketFront,
+      auth_code: serverConfig.authCode || '',
+      user_product_info: serverConfig.userProductInfo || 'TauriApp',
+      app_id: serverConfig.appId || 'TauriApp_1.0'
     };
   }
 

@@ -17,7 +17,9 @@ fn main() {
             ctp_commands::subscribe_market_data,
             ctp_commands::unsubscribe_market_data,
             ctp_commands::insert_order,
-            ctp_commands::cancel_order
+            ctp_commands::cancel_order,
+            ctp_commands::query_account,
+            ctp_commands::query_position
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

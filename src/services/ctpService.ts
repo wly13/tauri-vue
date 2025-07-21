@@ -7,7 +7,9 @@ import {
   ConnectionStatus,
   LogEntry,
   LogLevel,
-  MarketDataInfo
+  MarketDataInfo,
+  AccountInfo,
+  PositionInfo
 } from '../types/ctp';
 
 // 检查是否在 Tauri 环境中 - 使用 Tauri 2.0 推荐的检测方式
@@ -200,19 +202,28 @@ export class CtpService {
       this.mdStatus = 'connecting' as ConnectionStatus;
       this.emit('md_status_change', this.mdStatus);
 
+      this.addLog(`开始行情登录: ${config.md_front}`, LogLevel.Info);
+
       const result = await safeInvoke('md_login', {
         sessionId: this.mdSessionId,
         config
       }) as ApiResponse<string>;
 
       if (result.success) {
+        // 注意：MD登录是异步过程，这里只是启动了登录流程
+        // 实际的登录状态需要通过回调来确认
         this.mdStatus = 'login_success' as ConnectionStatus;
-        this.addLog('行情登录成功', LogLevel.Info);
+        this.addLog('行情登录流程已启动', LogLevel.Info);
+        this.addLog(`登录信息: ${result.data}`, LogLevel.Info);
+
+        // 给一些时间让连接建立
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
       } else {
         this.mdStatus = 'login_failed' as ConnectionStatus;
         this.addLog(`行情登录失败: ${result.error}`, LogLevel.Error, result);
       }
-      
+
       this.emit('md_status_change', this.mdStatus);
       return result;
     } catch (error) {
@@ -402,6 +413,87 @@ export class CtpService {
       return result;
     } catch (error) {
       this.addLog(`撤单异常: ${error}`, LogLevel.Error, error);
+      return {
+        success: false,
+        error: String(error)
+      };
+    }
+  }
+
+  // 查询账户资金
+  async queryAccount(): Promise<ApiResponse<AccountInfo>> {
+    if (!this.traderSessionId) {
+      const error = '请先创建交易API';
+      this.addLog(error, LogLevel.Error);
+      return { success: false, error };
+    }
+
+    if (this.traderStatus !== 'login_success') {
+      const error = '交易API未登录';
+      this.addLog(error, LogLevel.Error);
+      return { success: false, error };
+    }
+
+    try {
+      this.addLog('查询账户资金信息', LogLevel.Info);
+
+      const result = await safeInvoke('query_account', {
+        sessionId: this.traderSessionId
+      }) as ApiResponse<AccountInfo>;
+
+      if (result.success) {
+        this.addLog('账户资金查询成功', LogLevel.Info);
+        this.addLog(`可用资金: ${result.data?.available || 0}`, LogLevel.Info);
+      } else {
+        this.addLog(`账户资金查询失败: ${result.error}`, LogLevel.Error, result);
+      }
+
+      return result;
+    } catch (error) {
+      this.addLog(`账户资金查询异常: ${error}`, LogLevel.Error, error);
+      return {
+        success: false,
+        error: String(error)
+      };
+    }
+  }
+
+  // 查询持仓信息
+  async queryPosition(): Promise<ApiResponse<PositionInfo[]>> {
+    if (!this.traderSessionId) {
+      const error = '请先创建交易API';
+      this.addLog(error, LogLevel.Error);
+      return { success: false, error };
+    }
+
+    if (this.traderStatus !== 'login_success') {
+      const error = '交易API未登录';
+      this.addLog(error, LogLevel.Error);
+      return { success: false, error };
+    }
+
+    try {
+      this.addLog('查询持仓信息', LogLevel.Info);
+
+      const result = await safeInvoke('query_position', {
+        sessionId: this.traderSessionId
+      }) as ApiResponse<PositionInfo[]>;
+
+      if (result.success) {
+        const positions = result.data || [];
+        this.addLog(`持仓查询成功，共 ${positions.length} 个持仓`, LogLevel.Info);
+
+        // 记录主要持仓信息
+        positions.forEach(pos => {
+          this.addLog(`持仓: ${pos.instrument_id} ${pos.posi_direction === '2' ? '多' : '空'} ${pos.position}手`, LogLevel.Info);
+        });
+      } else {
+        this.addLog(`持仓查询失败: ${result.error}`, LogLevel.Error, result);
+      }
+
+      return result;
+    } catch (error) {
+      this.addLog(`持仓查询异常: ${error}`, LogLevel.Error, error);
       return {
         success: false,
         error: String(error)

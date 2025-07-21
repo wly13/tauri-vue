@@ -8,6 +8,7 @@ import TauriTest from '../views/TauriTest.vue'
 import TauriDebug from '../views/TauriDebug.vue'
 import Screenshot from '../views/Screenshot.vue'
 import TradingPanel from '../views/TradingPanel.vue'
+import TradingController from '../views/TradingController.vue'
 import PriceBoard from '../views/PriceBoard.vue'
 import CtpTest from '../views/CtpTest.vue'
 import ServerConfig from '../views/ServerConfig.vue'
@@ -24,6 +25,7 @@ const routes = [
     { path: '/tauri-debug', name: 'TauriDebug', component: TauriDebug },
     { path: '/screenshot', name: 'Screenshot', component: Screenshot },
     { path: '/trading-panel', name: 'TradingPanelAlt', component: TradingPanel },
+    { path: '/trading-controller', name: 'TradingController', component: TradingController },
     { path: '/price-board', name: 'PriceBoard', component: PriceBoard },
     { path: '/server-config', name: 'ServerConfig', component: ServerConfig },
 ]

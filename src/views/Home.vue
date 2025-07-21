@@ -14,6 +14,7 @@
         <router-link to="/contract" class="nav-link">合约页面</router-link>
         <router-link to="/screenshot" class="nav-link">截图功能</router-link>
         <router-link to="/trading-panel" class="nav-link">交易面板</router-link>
+        <router-link to="/trading-controller" class="nav-link">交易控制面板</router-link>
         <router-link to="/price-board" class="nav-link">价格面板</router-link>
         <router-link to="/about" class="nav-link">关于页面</router-link>
       </div>

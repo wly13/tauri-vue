@@ -252,15 +252,17 @@ const onLogin = async () => {
 
     message.success('登录成功！');
 
-    // 调整窗口大小和位置
+    // 调整窗口大小和位置为小控制面板
     const curWindow = Window.getCurrent();
-    curWindow.setSize(new LogicalSize(500, 600));
-    curWindow.setPosition(new LogicalPosition(100, 100));
-    curWindow.setResizable(false);
-    curWindow.setTitle("CTP交易系统");
+    await curWindow.setSize(new LogicalSize(200, 50));
+    await curWindow.setPosition(new LogicalPosition(100, 100));
+    await curWindow.setResizable(false);
+    await curWindow.setDecorations(false); // 隐藏标题栏
+    await curWindow.setAlwaysOnTop(true); // 置顶显示
+    await curWindow.setTitle("交易控制面板");
 
-    // 跳转到交易面板
-     router.push('/trading-panel');
+    // 跳转到交易控制面板
+    router.push('/trading-controller');
 
   } catch (error) {
     console.error('登录失败:', error);

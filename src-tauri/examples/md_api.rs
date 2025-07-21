@@ -1,6 +1,6 @@
 use std::{fs, io::Write, path::Path};
 
-use ctp_sys::{
+use tauri_app_vue_lib::{
     print_rsp_info, set_cstr_from_str_truncate_i8, CThostFtdcReqUserLoginField, CtpAccountConfig, gb18030_cstr_to_str, trading_day_from_ctp_trading_day, ascii_cstr_to_str, ascii_cstr_to_str_i8,
 };
 use futures::StreamExt;
@@ -38,7 +38,7 @@ fn check_make_dir(path: &String) {
 }
 
 async fn md(ca: &CtpAccountConfig) {
-    use ctp_sys::md_api::*;
+    use tauri_app_vue_lib::md_api::*;
     let broker_id = ca.broker_id.as_str();
     let account = ca.account.as_str();
     let md_front = ca.md_front.as_str();
@@ -65,7 +65,7 @@ async fn md(ca: &CtpAccountConfig) {
     api.init();
     // 处理登陆初始化查询
     while let Some(spi_msg) = stream.next().await {
-        use ctp_sys::md_api::CThostFtdcMdSpiOutput::*;
+        use tauri_app_vue_lib::md_api::CThostFtdcMdSpiOutput::*;
         match spi_msg {
             OnFrontConnected(_p) => {
                 let mut req = CThostFtdcReqUserLoginField::default();

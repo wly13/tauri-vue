@@ -90,10 +90,14 @@
 
         <!-- 下单控制 -->
         <div class="order-inputs">
-          <input v-model="orderQuantity" type="number" class="order-input" placeholder="1"
-                 title="下单数量（手）" />
-          <input v-model="orderPrice" type="number" class="order-input" placeholder="20"
-                 title="下单价格（点击价格档位时自动填入）" />
+          <div class="input-group">
+            <input v-model="lightOrderQuantity" type="number" class="order-input" placeholder="1" min="1" max="5"
+                   title="轻仓下单数量（手）- 鼠标左键下单" />
+          </div>
+          <div class="input-group">
+            <input v-model="heavyOrderQuantity" type="number" class="order-input" placeholder="3" min="5" max="25"
+                   title="重仓下单数量（手）- 鼠标右键下单" />
+          </div>
         </div>
 
         <div class="order-type-group">
@@ -166,8 +170,10 @@
             <!-- 第二列：买单按钮（A/B模式） -->
             <div
               class="buy-order-col clickable"
-              @click="handleOrderClick('buy', item, index)"
+              @click="handleOrderClick('buy', item, index, $event)"
+              @contextmenu.prevent="handleOrderClick('buy', item, index, $event)"
               :class="{ active: isSelected('sell', 'buy', index) }"
+              title="左键轻仓买入，右键重仓买入"
             >
               {{ item.buyVolume || '' }}
             </div>
@@ -180,8 +186,10 @@
             <!-- 第四列：卖单按钮（A/B模式） -->
             <div
               class="sell-order-col clickable"
-              @click="handleOrderClick('sell', item, index)"
+              @click="handleOrderClick('sell', item, index, $event)"
+              @contextmenu.prevent="handleOrderClick('sell', item, index, $event)"
               :class="{ active: isSelected('sell', 'sell', index) }"
+              title="左键轻仓卖出，右键重仓卖出"
             >
               {{ item.sellVolume || '' }}
             </div>
@@ -213,8 +221,10 @@
             <!-- 第二列：买单按钮（A/B模式） -->
             <div
               class="buy-order-col clickable"
-              @click="handleOrderClick('buy', item, index)"
+              @click="handleOrderClick('buy', item, index, $event)"
+              @contextmenu.prevent="handleOrderClick('buy', item, index, $event)"
               :class="{ active: isSelected('buy', 'buy', index) }"
+              title="左键轻仓买入，右键重仓买入"
             >
               {{ item.buyVolume || '' }}
             </div>
@@ -227,8 +237,10 @@
             <!-- 第四列：卖单按钮（A/B模式） -->
             <div
               class="sell-order-col clickable"
-              @click="handleOrderClick('sell', item, index)"
+              @click="handleOrderClick('sell', item, index, $event)"
+              @contextmenu.prevent="handleOrderClick('sell', item, index, $event)"
               :class="{ active: isSelected('buy', 'sell', index) }"
+              title="左键轻仓卖出，右键重仓卖出"
             >
               {{ item.sellVolume || '' }}
             </div>
@@ -266,6 +278,7 @@ interface SelectedCell {
   value: number
   data: OrderData
   index: number
+  quantity?: number  // 下单数量（可选）
 }
 
 // CTP服务实例
@@ -279,7 +292,8 @@ const isUsingRealData = ref(false)
 // 交易相关
 const selectedCell = ref<SelectedCell | null>(null)  // 当前选中的单元格（用于下单/撤单）
 const clickCount = ref(0)                           // 点击计数器
-const orderQuantity = ref(1)                        // 下单数量（手）
+const lightOrderQuantity = ref(1)                   // 轻仓下单数量（手）- 鼠标左键
+const heavyOrderQuantity = ref(5)                   // 重仓下单数量（手）- 鼠标右键
 const orderPrice = ref(20)                          // 下单价格（点击价格档位时自动填入）
 const orderType = ref('A')                          // 订单类型：A=默认模式, B=特殊模式
 
@@ -486,15 +500,21 @@ const handleCancelClick = (type: 'sell' | 'buy', data: OrderData, index: number)
 }
 
 // 处理下单点击
-const handleOrderClick = (orderType: 'buy' | 'sell', data: OrderData, index: number) => {
+const handleOrderClick = (orderType: 'buy' | 'sell', data: OrderData, index: number, event?: MouseEvent) => {
   clickCount.value++
+
+  // 根据鼠标按键决定下单数量
+  const isRightClick = event?.button === 2 // 右键
+  const orderQuantity = isRightClick ? heavyOrderQuantity.value : lightOrderQuantity.value
+  const orderMode = isRightClick ? '重仓' : '轻仓'
 
   selectedCell.value = {
     type: orderType,
     field: orderType,
     value: data.price,
     data,
-    index
+    index,
+    quantity: orderQuantity // 添加数量信息
   }
 
   // 自动填入价格
@@ -504,7 +524,10 @@ const handleOrderClick = (orderType: 'buy' | 'sell', data: OrderData, index: num
     orderType: orderType === 'buy' ? '买单' : '卖单',
     price: data.price,
     level: data.level,
-    mode: orderType
+    mode: orderType,
+    quantity: orderQuantity,
+    orderMode: orderMode,
+    mouseButton: isRightClick ? '右键' : '左键'
   })
 
   // 执行下单操作
@@ -515,7 +538,10 @@ const handleOrderClick = (orderType: 'buy' | 'sell', data: OrderData, index: num
 const placeOrder = async () => {
   if (!selectedCell.value) return
 
-  const { type, field, value, data } = selectedCell.value
+  const { type, field, value, data, quantity } = selectedCell.value
+
+  // 使用selectedCell中的数量，如果没有则使用轻仓数量作为默认值
+  const orderQuantity = quantity || lightOrderQuantity.value
 
   try {
     // 检查CTP连接状态
@@ -535,7 +561,7 @@ const placeOrder = async () => {
       instrument_id: 'rb2509', // 当前合约
       direction: type === 'buy' ? '0' : '1', // 0=买入, 1=卖出
       price: orderPrice.value,
-      volume: orderQuantity.value,
+      volume: orderQuantity,
       order_type: '1' // 1=限价单
     }
 
@@ -545,7 +571,8 @@ const placeOrder = async () => {
     const result = await ctpService.insertOrder(orderRequest)
 
     if (result.success) {
-      message.success(`下单成功: ${type === 'buy' ? '买入' : '卖出'} ${orderQuantity.value}手 @${orderPrice.value}`)
+      const orderMode = quantity === heavyOrderQuantity.value ? '重仓' : '轻仓'
+      message.success(`${orderMode}下单成功: ${type === 'buy' ? '买入' : '卖出'} ${orderQuantity}手 @${orderPrice.value}`)
       console.log('✅ 下单成功:', result.data)
 
       // 清除选择
@@ -1343,7 +1370,8 @@ TradingPanel 字段说明：
 • T仓: ${tPosition.value} - 今日持仓
 
 【交易控制】
-• 下单数量: ${orderQuantity.value}手 - 每次下单的手数
+• 轻仓数量: ${lightOrderQuantity.value}手 - 鼠标左键下单数量
+• 重仓数量: ${heavyOrderQuantity.value}手 - 鼠标右键下单数量
 • 下单价格: ${orderPrice.value} - 下单价格（点击档位自动填入）
 • 订单类型: ${orderType.value} - A=默认模式, B=特殊模式
 
@@ -1501,9 +1529,9 @@ onUnmounted(() => {
 
 /* 左侧操作列 */
 .left-control-panel {
-  width: 180px;
-  min-width: 180px;
-  max-width: 180px;
+  width: 100px;
+  min-width: 100px;
+  max-width: 100px;
   background: #e0e0e0;
   border: 1px solid #000;
   padding: 5px;
@@ -1557,6 +1585,7 @@ onUnmounted(() => {
 
 .zero-values {
   display: flex;
+  flex-direction: column;
   gap: 2px;
 }
 
@@ -1579,7 +1608,29 @@ onUnmounted(() => {
 .order-inputs {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+}
+
+.input-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.input-label {
+  font-size: 10px;
+  color: #666;
+  min-width: 24px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.input-group:first-child .input-label {
+  color: #52c41a; /* 轻仓绿色 */
+}
+
+.input-group:last-child .input-label {
+  color: #ff4d4f; /* 重仓红色 */
 }
 
 .order-input {

@@ -83,7 +83,7 @@ macro_rules! print_rsp_info {
             info!(
                 "ErrorID={} Msg={}",
                 p.ErrorID,
-                ctp_sys::gb18030_cstr_to_str_i8(&p.ErrorMsg).to_string()
+                tauri_app_vue_lib::gb18030_cstr_to_str_i8(&p.ErrorMsg).to_string()
             );
         }
     };

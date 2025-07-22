@@ -5,62 +5,28 @@
       :active-set="activeSet"
       :font-size="fontSize"
       :has-active-panels="hasActivePanels"
-      @contextmenu="showContextMenu"
+      @contextmenu="handleMainContextMenu"
       @set-click="handleSetClick"
-      @set-contextmenu="showSetContextMenu"
-    />
-
-    <!-- 主右键菜单 -->
-    <ContextMenu
-      :visible="contextMenu.visible"
-      :x="contextMenu.x"
-      :y="contextMenu.y"
-      :menu-items="mainMenuItems"
-      :secondary-items="mainMenuSecondaryItems"
-      :show-separator="true"
-      @close="hideAllMenus"
-    />
-
-    <!-- 交易集右键菜单 -->
-    <ContextMenu
-      :visible="setContextMenu.visible"
-      :x="setContextMenu.x"
-      :y="setContextMenu.y"
-      :menu-items="setMenuItems"
-      @close="hideAllMenus"
+      @set-contextmenu="handleSetContextMenu"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, onMounted } from "vue";
 import ControllerPanel from "@/components/trading-controller/ControllerPanel.vue";
-import ContextMenu from "@/components/trading-controller/ContextMenu.vue";
-import { useContextMenu } from "@/composables/trading-controller/useContextMenu";
 import { useTradingPanels } from "@/composables/trading-controller/useTradingPanels";
 import { useConfigManager } from "@/composables/trading-controller/useConfigManager";
 import { useXMLConfig } from "@/composables/trading-controller/useXMLConfig";
 import { useAppActions } from "@/composables/trading-controller/useAppActions";
+import { useSystemMenu } from "@/composables/trading-controller/useSystemMenu";
 import { createKeyboardHandler } from "@/utils/keyboardUtils";
-import {
-  createMainMenuItems,
-  createMainMenuSecondaryItems,
-  createSetMenuItems,
-} from "@/utils/menuUtils";
+import type { MenuAction } from "@/types/trading";
 
 // 响应式数据
 const fontSize = ref(12);
 
 // 使用组合式函数
-const {
-  contextMenu,
-  setContextMenu,
-  selectedSet,
-  showContextMenu,
-  showSetContextMenu,
-  hideAllMenus,
-} = useContextMenu();
-
 const {
   tradingPanels,
   hasActivePanels,
@@ -75,6 +41,8 @@ const { loadXMLConfiguration } = useXMLConfig();
 
 const { configureTradingSet, handleMenuAction } = useAppActions();
 
+const { showMainContextMenu, showSetContextMenu } = useSystemMenu();
+
 // 处理交易集按钮点击
 const handleSetClick = async (setNumber: number) => {
   console.log(`点击交易集${setNumber}`);
@@ -82,43 +50,36 @@ const handleSetClick = async (setNumber: number) => {
   await openTradingPanel(setNumber);
 };
 
-// 创建菜单项
-const mainMenuItems = computed(() =>
-  createMainMenuItems((action) => {
-    hideAllMenus();
-    handleMenuAction(action, {
-      saveConfiguration: () => saveConfiguration(tradingPanels.value),
-      loadXMLConfiguration: () => loadXMLConfiguration(openTradingPanel),
-      closeAllTradingPanels,
-    });
-  })
-);
+// 菜单操作处理
+const handleMenuActionWrapper = (action: MenuAction) => {
+  handleMenuAction(action, {
+    saveConfiguration: () => saveConfiguration(tradingPanels.value),
+    loadXMLConfiguration: () => loadXMLConfiguration(openTradingPanel),
+    closeAllTradingPanels,
+  });
+};
 
-const mainMenuSecondaryItems = computed(() =>
-  createMainMenuSecondaryItems((action) => {
-    hideAllMenus();
-    handleMenuAction(action, {
-      saveConfiguration: () => saveConfiguration(tradingPanels.value),
-      loadXMLConfiguration: () => loadXMLConfiguration(openTradingPanel),
-      closeAllTradingPanels,
-    });
-  })
-);
+// 主右键菜单处理
+const handleMainContextMenu = async (event: MouseEvent) => {
+  await showMainContextMenu(event, handleMenuActionWrapper);
+};
 
-const setMenuItems = computed(() =>
-  createSetMenuItems(
-    selectedSet.value,
+// 交易集右键菜单处理
+const handleSetContextMenu = async (setNumber: number, event: MouseEvent) => {
+  await showSetContextMenu(
+    event,
+    setNumber,
     openTradingPanel,
     closeAllPanels,
     configureTradingSet
-  )
-);
+  );
+};
 
 // 键盘事件处理
-const keyboardHandler = createKeyboardHandler(hideAllMenus, handleSetClick);
+const keyboardHandler = createKeyboardHandler(() => {}, handleSetClick);
 
 // 组件挂载
-onMounted(() => {
+onMounted(async () => {
   document.addEventListener("keydown", keyboardHandler);
   loadConfiguration();
 });

@@ -37,7 +37,7 @@ const {
 
 const { activeSet, saveConfiguration, loadConfiguration } = useConfigManager();
 
-const { loadXMLConfiguration } = useXMLConfig();
+const { autoLoadXMLConfiguration, loadXMLConfiguration } = useXMLConfig();
 
 const { configureTradingSet, handleMenuAction } = useAppActions();
 
@@ -81,7 +81,9 @@ const keyboardHandler = createKeyboardHandler(() => {}, handleSetClick);
 // 组件挂载
 onMounted(async () => {
   document.addEventListener("keydown", keyboardHandler);
-  loadConfiguration();
+
+  // 自动加载默认XML配置文件
+  await autoLoadXMLConfiguration(openTradingPanel);
 });
 </script>
 

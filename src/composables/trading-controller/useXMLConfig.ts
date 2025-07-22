@@ -4,7 +4,32 @@ import { message } from 'ant-design-vue'
 import type { TradingConfiguration } from '@/types/trading'
 
 export function useXMLConfig() {
-  // 加载XML配置
+  // 自动加载XML配置（默认文件）
+  const autoLoadXMLConfiguration = async (openTradingPanel: (setNumber: number) => Promise<void>) => {
+    try {
+      // 默认配置文件名
+      const defaultFileName = 'trading_panel_config.xml'
+
+      console.log('正在自动加载默认配置文件:', defaultFileName)
+
+      // 读取并解析XML配置
+      const config = await loadTradingPanelXML(defaultFileName)
+
+      if (config && config.panels && config.panels.length > 0) {
+        console.log('配置文件已读取:', config)
+        // 恢复面板配置
+        await restorePanelConfiguration(config, openTradingPanel)
+        message.success(`自动加载配置成功，共恢复${config.panels.length}个面板`)
+      } else {
+        console.log('默认配置文件为空或不存在，跳过自动加载')
+      }
+    } catch (error) {
+      console.warn('自动加载配置失败，可能是首次启动或配置文件不存在:', error)
+      // 自动加载失败时不显示错误消息，因为这是正常情况
+    }
+  }
+
+  // 手动加载XML配置（保留原有功能）
   const loadXMLConfiguration = async (openTradingPanel: (setNumber: number) => Promise<void>) => {
     try {
       // 简单的文件名输入对话框（实际项目中可以使用文件选择对话框）
@@ -150,6 +175,7 @@ export function useXMLConfig() {
   }
 
   return {
+    autoLoadXMLConfiguration,
     loadXMLConfiguration,
     parseXMLConfig
   }

@@ -162,7 +162,7 @@ export function useConfigManager() {
 
       // 生成默认文件名
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-      const fileName = `trading_panel_config_${timestamp}.xml`
+      const fileName = `trading_panel_config.xml`
 
       // 使用当前工作目录保存文件
       const filePath = `./${fileName}`

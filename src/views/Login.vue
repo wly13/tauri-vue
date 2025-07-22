@@ -254,7 +254,7 @@ const onLogin = async () => {
 
     // 调整窗口大小和位置为小控制面板
     const curWindow = Window.getCurrent();
-    await curWindow.setSize(new LogicalSize(200, 50));
+    await curWindow.setSize(new LogicalSize(300, 60));
     await curWindow.setPosition(new LogicalPosition(100, 100));
     await curWindow.setResizable(false);
     await curWindow.setDecorations(false); // 隐藏标题栏

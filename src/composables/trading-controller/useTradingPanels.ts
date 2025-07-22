@@ -21,7 +21,7 @@ export function useTradingPanels() {
   }
 
   // 打开交易面板
-  const openTradingPanel = async (setNumber: number) => {
+  const openTradingPanel = async (setNumber: number, tradeName?: string) => {
     try {
       // 检查当前交易集是否已有面板
       const existingPanels = getSetPanels(setNumber)
@@ -61,9 +61,9 @@ export function useTradingPanels() {
       // 创建新的交易面板窗口
       const panel = new WebviewWindow(panelId, {
         url: '/trading-panel',
-        title: `交易面板 - 集合${setNumber}`,
-        width: 800,
-        height: 600,
+        title: tradeName,
+        width: 300,
+        height: 800,
         resizable: true,
         decorations: true,
         alwaysOnTop: false,

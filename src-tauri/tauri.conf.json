@@ -23,12 +23,6 @@
         "decorations": true
       }
     ],
-    "tray-icon": {
-      "iconPath": "icons/icon.png",
-      "iconAsTemplate": true,
-      "menuOnLeftClick": false,
-      "tooltip": "Trading Controller"
-    },
     "security": {
       "csp": null
     }

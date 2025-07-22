@@ -15,9 +15,20 @@
         "title": "tauri_app_vue",
         "width": 800,
         "height": 600,
-        "create": true
+        "create": true,
+        "closable": true,
+        "minimizable": true,
+        "maximizable": true,
+        "resizable": true,
+        "decorations": true
       }
     ],
+    "tray-icon": {
+      "iconPath": "icons/icon.png",
+      "iconAsTemplate": true,
+      "menuOnLeftClick": false,
+      "tooltip": "Trading Controller"
+    },
     "security": {
       "csp": null
     }

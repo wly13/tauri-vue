@@ -1,13 +1,14 @@
 <template>
-  <div 
-    class="controller-panel" 
-    :style="{ fontSize: fontSize + 'px' }" 
+  <div
+    class="controller-panel"
+    :style="{ fontSize: fontSize + 'px' }"
     @contextmenu.prevent="$emit('contextmenu', $event)"
+    data-tauri-drag-region
   >
     <!-- 交易集按钮 -->
     <div class="trading-sets">
       <TradingSetButton
-        v-for="setNumber in 4" 
+        v-for="setNumber in 4"
         :key="setNumber"
         :set-number="setNumber"
         :is-active="activeSet === setNumber"

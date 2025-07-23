@@ -1,13 +1,14 @@
 <template>
-  <button 
-    class="set-button" 
+  <button
+    class="set-button"
     :class="{
       active: isActive,
       'has-panels': hasPanels
-    }" 
-    @click="$emit('click', setNumber)" 
+    }"
+    @click="$emit('click', setNumber)"
     @contextmenu.prevent.stop="$emit('contextmenu', setNumber, $event)"
     :title="hasPanels ? `交易集${setNumber} (已打开)` : `交易集${setNumber} (点击打开)`"
+    data-tauri-drag-region="false"
   >
     {{ setNumber }}
     <span v-if="hasPanels" class="panel-indicator">●</span>

@@ -60,7 +60,7 @@ export function useTradingPanels() {
 
       // 创建新的交易面板窗口
       const panel = new WebviewWindow(panelId, {
-        url: '/trading-panel',
+        url: '#/trading-panel',
         title: tradeName,
         width: 300,
         height: 800,

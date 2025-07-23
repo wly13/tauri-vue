@@ -30,3 +30,5 @@ src-tauri/ctp_cache/
 ctp_cache/
 *.flow
 *.con
+
+trading_panel_config.html

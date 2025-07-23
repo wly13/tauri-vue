@@ -2,11 +2,36 @@
 
 import { ref } from 'vue'
 import { message } from 'ant-design-vue'
-import type { TradingConfiguration, PanelConfig } from '@/types/trading'
+import type { TradingConfiguration, PanelConfig, TradingState, MarketData } from '@/types/trading'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { emit, listen } from '@tauri-apps/api/event'
 
 export function useConfigManager() {
   const activeSet = ref(1)
+
+  // 从交易面板获取实际配置数据
+  const getPanelConfiguration = async (panelId: string, panel: WebviewWindow): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error(`获取面板${panelId}配置超时`))
+      }, 5000) // 5秒超时
+
+      // 监听面板配置响应
+      const unlisten = listen(`panel-config-response-${panelId}`, (event) => {
+        clearTimeout(timeout)
+        unlisten.then(fn => fn()) // 清理监听器
+        resolve(event.payload)
+      })
+
+      // 向面板发送获取配置请求
+      emit(`get-panel-config-${panelId}`, { requestId: panelId })
+        .catch(error => {
+          clearTimeout(timeout)
+          unlisten.then(fn => fn())
+          reject(error)
+        })
+    })
+  }
 
   // 保存配置到XML
   const saveConfiguration = async (tradingPanels: Map<string, WebviewWindow>) => {
@@ -27,6 +52,37 @@ export function useConfigManager() {
             // 解析面板ID获取集合编号
             const setNumber = parseInt(panelId.split('-')[2])
 
+            // 获取面板的实际配置数据
+            let tradingState: TradingState, marketData: MarketData
+            try {
+              console.log(`正在获取面板${panelId}的配置数据...`)
+              const panelConfig = await getPanelConfiguration(panelId, panel)
+              tradingState = panelConfig.tradingState
+              marketData = panelConfig.marketData
+              console.log(`成功获取面板${panelId}的配置:`, panelConfig)
+            } catch (error) {
+              console.warn(`获取面板${panelId}配置失败，使用默认值:`, error)
+              // 使用默认值作为后备
+              tradingState = {
+                currentPrice: 3070,
+                fontSize: 11,
+                cellHeight: 18,
+                orderType: 'A',
+                lightOrderQuantity: 1,
+                heavyOrderQuantity: 5,
+                positionMode: 'open',
+                cancelMode: 'limited',
+                maxCancelOrders: 489,
+                currentCancelCount: 0
+              }
+              marketData = {
+                totalVolume: 865535,
+                totalPosition: 269026,
+                dailyPositionChange: 2260,
+                priceChangePercent: -0.07
+              }
+            }
+
             // 面板配置
             const panelConfig: PanelConfig = {
               id: panelId,
@@ -41,25 +97,8 @@ export function useConfigManager() {
                 minimized: isMinimized,
                 maximized: isMaximized
               },
-              // 面板状态（这些是默认值，实际应该从面板获取）
-              tradingState: {
-                currentPrice: 3070,
-                fontSize: 11,
-                cellHeight: 18,
-                orderType: 'A',
-                lightOrderQuantity: 1,
-                heavyOrderQuantity: 5,
-                positionMode: 'open',
-                cancelMode: 'limited',
-                maxCancelOrders: 489,
-                currentCancelCount: 0
-              },
-              marketData: {
-                totalVolume: 865535,
-                totalPosition: 269026,
-                dailyPositionChange: 2260,
-                priceChangePercent: -0.07
-              },
+              tradingState: tradingState,
+              marketData: marketData,
               timestamp: new Date().toISOString()
             }
 

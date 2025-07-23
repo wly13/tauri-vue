@@ -264,6 +264,8 @@ import { runTradingPanelTest } from '../utils/tradingPanelTest'
 import { runQueryTest } from '../utils/queryTest'
 import { startGlobalPriceTest, stopGlobalPriceTest } from '../utils/priceUpdateTest'
 import { runDynamicOrdersTest } from '../utils/dynamicOrdersTest'
+import { emit, listen } from '@tauri-apps/api/event'
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 
 interface OrderData {
   price: number
@@ -1460,8 +1462,49 @@ const updatePricesFromMarketData = (data: MarketDataInfo) => {
   console.log('✅ 价格数据更新完成')
 }
 
+// 获取当前窗口标签
+const getCurrentWindowLabel = () => {
+  const currentWindow = getCurrentWebviewWindow()
+  return currentWindow.label
+}
+
+// 响应配置获取请求
+const handleConfigRequest = async (event: any) => {
+  const { requestId } = event.payload
+  const windowLabel = getCurrentWindowLabel()
+
+  console.log(`收到配置请求，窗口标签: ${windowLabel}, 请求ID: ${requestId}`)
+
+  // 收集当前面板的配置数据
+  const panelConfig = {
+    tradingState: {
+      currentPrice: currentPrice.value,
+      fontSize: fontSize.value,
+      cellHeight: cellHeight.value,
+      orderType: orderType.value,
+      lightOrderQuantity: lightOrderQuantity.value,
+      heavyOrderQuantity: heavyOrderQuantity.value,
+      positionMode: positionMode.value,
+      cancelMode: cancelMode.value,
+      maxCancelOrders: maxCancelOrders.value,
+      currentCancelCount: currentCancelCount.value
+    },
+    marketData: {
+      totalVolume: totalVolume.value,
+      totalPosition: totalPosition.value,
+      dailyPositionChange: dailyPositionChange.value,
+      priceChangePercent: priceChangePercent.value
+    }
+  }
+
+  console.log(`发送面板配置:`, panelConfig)
+
+  // 发送配置响应
+  await emit(`panel-config-response-${requestId}`, panelConfig)
+}
+
 // 组件挂载和卸载时的事件监听
-onMounted(() => {
+onMounted(async () => {
   document.addEventListener('keydown', handleKeydown)
   updateTime() // 组件挂载时开始更新时间
 
@@ -1479,6 +1522,12 @@ onMounted(() => {
   setTimeout(() => {
     scrollToCurrentPrice()
   }, 1000)
+
+  // 监听配置获取请求
+  const windowLabel = getCurrentWindowLabel()
+  console.log(`交易面板已挂载，窗口标签: ${windowLabel}`)
+
+  await listen(`get-panel-config-${windowLabel}`, handleConfigRequest)
 })
 
 onUnmounted(() => {

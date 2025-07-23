@@ -16,11 +16,6 @@ export function useSystemMenu() {
         action: () => handleMenuAction('save')
       })
 
-      const loadItem = await MenuItem.new({
-        text: '📂 加载配置',
-        action: () => handleMenuAction('load')
-      })
-
       const searchItem = await MenuItem.new({
         text: '🔍 搜索',
         action: () => handleMenuAction('search')
@@ -30,13 +25,6 @@ export function useSystemMenu() {
         text: '🚪 退出',
         action: () => handleMenuAction('exit')
       })
-
-      // 分隔符
-      const separator1 = await MenuItem.new({
-        text: '',
-        enabled: false
-      })
-
       const syncItem = await MenuItem.new({
         text: '⚡ 同步（缩放）',
         action: () => handleMenuAction('sync')
@@ -51,10 +39,8 @@ export function useSystemMenu() {
       const menu = await Menu.new({
         items: [
           saveItem,
-          loadItem,
           searchItem,
           exitItem,
-          separator1,
           syncItem,
           updateItem
         ]

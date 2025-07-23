@@ -7,7 +7,6 @@
       :has-active-panels="hasActivePanels"
       @contextmenu="handleMainContextMenu"
       @set-click="handleSetClick"
-      @set-contextmenu="handleSetContextMenu"
     />
   </div>
 </template>

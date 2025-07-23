@@ -102,12 +102,11 @@ import {
   LogicalPosition,
   LogicalSize,
 } from "@tauri-apps/api/window";
-import { CtpService } from "../services/ctpService";
+import { ctpService } from "../services/ctpService";
 import { UserStorageService, UserInfo } from "../services/userStorage";
 import { CtpConfigManager } from "../config/ctpConfig";
 
 const router = useRouter();
-const ctpService = new CtpService();
 
 const form = ref({
   server: "current",

@@ -9,8 +9,10 @@ import {
   LogLevel,
   MarketDataInfo,
   AccountInfo,
-  PositionInfo
+  PositionInfo,
+  InstrumentInfo
 } from '../types/ctp';
+import { sessionManager } from './sessionManager';
 
 // 检查是否在 Tauri 环境中 - 使用 Tauri 2.0 推荐的检测方式
 async function isTauriEnvironment(): Promise<boolean> {
@@ -43,6 +45,7 @@ async function safeInvoke(command: string, args?: any): Promise<any> {
 }
 
 export class CtpService {
+  private static instance: CtpService | null = null;
   private mdSessionId: string | null = null;
   private traderSessionId: string | null = null;
   private mdStatus: ConnectionStatus = 'disconnected' as ConnectionStatus;
@@ -50,8 +53,40 @@ export class CtpService {
   private logs: LogEntry[] = [];
   private eventListeners: Map<string, Function[]> = new Map();
 
-  constructor() {
+  private constructor() {
     this.initEventListeners();
+    this.loadSessionFromCache();
+  }
+
+  // 获取单例实例
+  public static getInstance(): CtpService {
+    if (!CtpService.instance) {
+      CtpService.instance = new CtpService();
+    }
+    return CtpService.instance;
+  }
+
+  // 从缓存加载会话信息
+  private loadSessionFromCache(): void {
+    const sessionInfo = sessionManager.getSessionInfo();
+    if (sessionInfo) {
+      this.mdSessionId = sessionInfo.mdSessionId;
+      this.traderSessionId = sessionInfo.traderSessionId;
+      this.mdStatus = sessionInfo.mdStatus as ConnectionStatus;
+      this.traderStatus = sessionInfo.traderStatus as ConnectionStatus;
+      console.log('📋 从缓存恢复会话信息:', sessionInfo);
+    }
+  }
+
+  // 保存会话信息到缓存
+  private saveSessionToCache(): void {
+    sessionManager.saveSessionInfo({
+      mdSessionId: this.mdSessionId,
+      traderSessionId: this.traderSessionId,
+      mdStatus: this.mdStatus,
+      traderStatus: this.traderStatus,
+      lastUpdateTime: new Date().toISOString()
+    });
   }
 
   // 获取安全的流文件路径
@@ -146,6 +181,7 @@ export class CtpService {
         this.mdStatus = 'connected' as ConnectionStatus;
         this.emit('md_status_change', this.mdStatus);
         this.addLog(`创建行情API成功: ${sessionId}`, LogLevel.Info);
+        this.saveSessionToCache(); // 保存会话信息
       } else {
         this.addLog(`创建行情API失败: ${result.error}`, LogLevel.Error, result);
       }
@@ -314,6 +350,7 @@ export class CtpService {
         this.traderStatus = 'connected' as ConnectionStatus;
         this.emit('trader_status_change', this.traderStatus);
         this.addLog(`创建交易API成功: ${sessionId}`, LogLevel.Info);
+        this.saveSessionToCache(); // 保存会话信息
       } else {
         this.addLog(`创建交易API失败: ${result.error}`, LogLevel.Error, result);
       }
@@ -346,6 +383,7 @@ export class CtpService {
       if (result.success) {
         this.traderStatus = 'login_success' as ConnectionStatus;
         this.addLog('交易登录成功', LogLevel.Info);
+        this.saveSessionToCache(); // 保存会话信息
       } else {
         this.traderStatus = 'login_failed' as ConnectionStatus;
         this.addLog(`交易登录失败: ${result.error}`, LogLevel.Error, result);
@@ -501,6 +539,52 @@ export class CtpService {
     }
   }
 
+  async queryInstruments(): Promise<ApiResponse<InstrumentInfo[]>> {
+    if (!this.traderSessionId) {
+      const error = '请先创建交易API';
+      this.addLog(error, LogLevel.Error);
+      return { success: false, error };
+    }
+
+    if (this.traderStatus !== 'login_success') {
+      const error = '交易API未登录';
+      this.addLog(error, LogLevel.Error);
+      return { success: false, error };
+    }
+
+    try {
+      this.addLog('查询合约信息', LogLevel.Info);
+
+      const result = await safeInvoke('query_instruments', {
+        sessionId: this.traderSessionId
+      }) as ApiResponse<InstrumentInfo[]>;
+
+      if (result.success) {
+        const instruments = result.data || [];
+        this.addLog(`合约查询成功，共 ${instruments.length} 个合约`, LogLevel.Info);
+
+        // 记录主要合约信息
+        instruments.slice(0, 5).forEach(inst => {
+          this.addLog(`合约: ${inst.instrument_id} ${inst.instrument_name}`, LogLevel.Info);
+        });
+
+        if (instruments.length > 5) {
+          this.addLog(`... 还有 ${instruments.length - 5} 个合约`, LogLevel.Info);
+        }
+      } else {
+        this.addLog(`合约查询失败: ${result.error}`, LogLevel.Error, result);
+      }
+
+      return result;
+    } catch (error) {
+      this.addLog(`合约查询异常: ${error}`, LogLevel.Error, error);
+      return {
+        success: false,
+        error: String(error)
+      };
+    }
+  }
+
   // 状态获取方法
   getMdStatus(): ConnectionStatus {
     return this.mdStatus;
@@ -520,6 +604,26 @@ export class CtpService {
 
   getTraderSessionId(): string | null {
     return this.traderSessionId;
+  }
+
+  // 获取有效的交易会话ID，如果当前会话无效则尝试从缓存恢复
+  async getValidTraderSessionId(): Promise<string | null> {
+    // 如果当前有会话ID，直接返回
+    if (this.traderSessionId) {
+      return this.traderSessionId;
+    }
+
+    // 尝试从缓存获取有效的会话ID
+    const cachedSessionId = await sessionManager.getValidTraderSessionId();
+    if (cachedSessionId) {
+      this.traderSessionId = cachedSessionId;
+      this.traderStatus = 'login_success' as ConnectionStatus;
+      console.log('✅ 从缓存恢复交易会话:', cachedSessionId);
+      return cachedSessionId;
+    }
+
+    console.log('⚠️ 没有找到有效的交易会话ID');
+    return null;
   }
 
   // 清理方法
@@ -544,4 +648,4 @@ export class CtpService {
 }
 
 // 创建单例实例
-export const ctpService = new CtpService();
+export const ctpService = CtpService.getInstance();

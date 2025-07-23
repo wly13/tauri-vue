@@ -214,18 +214,30 @@ const getChangeClass = (changePercent?: number): string => {
 }
 
 // 更新价格数据
-const updatePrices = () => {
-  contractService.updateContractPrices()
-  allCategories.value = contractService.getAllCategories()
+const updatePrices = async () => {
+  try {
+    await contractService.updateContractPrices()
+    allCategories.value = contractService.getAllCategoriesSync()
+  } catch (error) {
+    console.error('更新价格数据失败:', error)
+  }
 }
 
 // 生命周期
-onMounted(() => {
+onMounted(async () => {
   // 初始化数据
-  allCategories.value = contractService.getAllCategories()
-  
+  try {
+    console.log('🔍 初始化合约数据...')
+    allCategories.value = await contractService.getAllCategories()
+    console.log('✅ 合约数据初始化完成')
+  } catch (error) {
+    console.error('❌ 初始化合约数据失败:', error)
+    message.error('获取合约数据失败，请检查 CTP 连接状态')
+    allCategories.value = []
+  }
+
   // 启动价格更新定时器
-  priceUpdateInterval.value = window.setInterval(updatePrices, 3000)
+  priceUpdateInterval.value = window.setInterval(updatePrices, 5000)
 })
 
 onUnmounted(() => {
@@ -237,10 +249,17 @@ onUnmounted(() => {
 })
 
 // 监听对话框显示状态
-watch(visible, (newVisible) => {
+watch(visible, async (newVisible) => {
   if (newVisible) {
     // 对话框打开时刷新数据
-    allCategories.value = contractService.getAllCategories()
+    try {
+      console.log('🔄 刷新合约数据...')
+      allCategories.value = await contractService.getAllCategories()
+    } catch (error) {
+      console.error('❌ 刷新合约数据失败:', error)
+      message.error('刷新合约数据失败')
+      allCategories.value = []
+    }
     searchKeyword.value = ''
     selectedContract.value = null
   }

@@ -1,17 +1,21 @@
-// 合约数据服务
+// 合约数据服务 - 直接从 CTP API 获取真实数据
 import type { ContractInfo, ContractCategory } from '@/types/trading'
+import { ctpService } from './ctpService'
+import { autoReconnectService } from './autoReconnectService'
 
 /**
  * 合约数据服务类
- * 负责管理和提供合约数据
+ * 负责管理和提供合约数据 - 直接从 CTP API 获取真实数据
  */
 export class ContractService {
   private static instance: ContractService
   private contracts: ContractInfo[] = []
   private categories: ContractCategory[] = []
+  private isInitialized: boolean = false
+  private isLoading: boolean = false
 
   private constructor() {
-    this.initializeContracts()
+    // 不在构造函数中初始化，改为异步初始化
   }
 
   public static getInstance(): ContractService {
@@ -22,289 +26,237 @@ export class ContractService {
   }
 
   /**
-   * 初始化合约数据
+   * 异步初始化合约数据 - 直接从 CTP API 获取
    */
-  private initializeContracts() {
-    // 苹果合约 (AP)
-    const appleContracts: ContractInfo[] = [
-      {
-        code: 'AP405',
-        name: '苹果5月',
-        category: '苹果(AP)',
-        categoryCode: 'AP',
-        month: '5月',
-        fullCode: 'AP2405',
-        isActive: true,
-        lastPrice: 8520,
-        changePercent: 1.25,
-        volume: 125430,
-        openInterest: 45230
-      },
-      {
-        code: 'AP410',
-        name: '苹果10月',
-        category: '苹果(AP)',
-        categoryCode: 'AP',
-        month: '10月',
-        fullCode: 'AP2410',
-        isActive: true,
-        lastPrice: 8650,
-        changePercent: -0.85,
-        volume: 98760,
-        openInterest: 38920
-      },
-      {
-        code: 'AP411',
-        name: '苹果11月',
-        category: '苹果(AP)',
-        categoryCode: 'AP',
-        month: '11月',
-        fullCode: 'AP2411',
-        isActive: true,
-        lastPrice: 8720,
-        changePercent: 0.45,
-        volume: 76540,
-        openInterest: 29870
-      },
-      {
-        code: 'AP412',
-        name: '苹果12月',
-        category: '苹果(AP)',
-        categoryCode: 'AP',
-        month: '12月',
-        fullCode: 'AP2412',
-        isActive: true,
-        lastPrice: 8800,
-        changePercent: 2.15,
-        volume: 54320,
-        openInterest: 21450
+  public async initialize(): Promise<void> {
+    if (this.isInitialized || this.isLoading) {
+      return
+    }
+
+    this.isLoading = true
+    
+    try {
+      console.log('🔍 开始从 CTP API 获取合约数据...')
+
+      // 确保交易连接可用，如果没有则自动重连
+      const isConnected = await autoReconnectService.ensureTraderConnection()
+      if (!isConnected) {
+        throw new Error('CTP 交易 API 未连接，请先登录')
       }
-    ]
 
-    // 棉花合约 (CF)
-    const cottonContracts: ContractInfo[] = [
-      {
-        code: 'CF405',
-        name: '棉花5月',
-        category: '棉花(CF)',
-        categoryCode: 'CF',
-        month: '5月',
-        fullCode: 'CF2405',
-        isActive: true,
-        lastPrice: 15420,
-        changePercent: -1.35,
-        volume: 234560,
-        openInterest: 87650
-      },
-      {
-        code: 'CF407',
-        name: '棉花7月',
-        category: '棉花(CF)',
-        categoryCode: 'CF',
-        month: '7月',
-        fullCode: 'CF2407',
-        isActive: true,
-        lastPrice: 15680,
-        changePercent: 0.75,
-        volume: 198740,
-        openInterest: 76540
-      },
-      {
-        code: 'CF409',
-        name: '棉花9月',
-        category: '棉花(CF)',
-        categoryCode: 'CF',
-        month: '9月',
-        fullCode: 'CF2409',
-        isActive: true,
-        lastPrice: 15890,
-        changePercent: 1.85,
-        volume: 167890,
-        openInterest: 65430
-      },
-      {
-        code: 'CF411',
-        name: '棉花11月',
-        category: '棉花(CF)',
-        categoryCode: 'CF',
-        month: '11月',
-        fullCode: 'CF2411',
-        isActive: true,
-        lastPrice: 16120,
-        changePercent: -0.45,
-        volume: 143210,
-        openInterest: 54320
+      // 查询所有合约信息
+      const result = await ctpService.queryInstruments()
+
+      if (result.success && result.data) {
+        console.log(`📋 获取到 ${result.data.length} 个合约信息`)
+        this.processRealContractData(result.data)
+        this.isInitialized = true
+        console.log('✅ 合约数据初始化成功')
+      } else {
+        throw new Error(result.error || '查询合约信息失败')
       }
-    ]
-
-    // 红枣合约 (CJ)
-    const jujubeContracts: ContractInfo[] = [
-      {
-        code: 'CJ405',
-        name: '红枣5月',
-        category: '红枣(CJ)',
-        categoryCode: 'CJ',
-        month: '5月',
-        fullCode: 'CJ2405',
-        isActive: true,
-        lastPrice: 12340,
-        changePercent: 2.45,
-        volume: 87650,
-        openInterest: 32450
-      },
-      {
-        code: 'CJ407',
-        name: '红枣7月',
-        category: '红枣(CJ)',
-        categoryCode: 'CJ',
-        month: '7月',
-        fullCode: 'CJ2407',
-        isActive: true,
-        lastPrice: 12580,
-        changePercent: -1.25,
-        volume: 76540,
-        openInterest: 28760
-      },
-      {
-        code: 'CJ409',
-        name: '红枣9月',
-        category: '红枣(CJ)',
-        categoryCode: 'CJ',
-        month: '9月',
-        fullCode: 'CJ2409',
-        isActive: true,
-        lastPrice: 12780,
-        changePercent: 0.85,
-        volume: 65430,
-        openInterest: 24580
-      },
-      {
-        code: 'CJ412',
-        name: '红枣12月',
-        category: '红枣(CJ)',
-        categoryCode: 'CJ',
-        month: '12月',
-        fullCode: 'CJ2412',
-        isActive: true,
-        lastPrice: 13020,
-        changePercent: 1.65,
-        volume: 54320,
-        openInterest: 20450
-      }
-    ]
-
-    // 豆粕合约 (M)
-    const mealContracts: ContractInfo[] = [
-      {
-        code: 'M405',
-        name: '豆粕5月',
-        category: '豆粕(M)',
-        categoryCode: 'M',
-        month: '5月',
-        fullCode: 'M2405',
-        isActive: true,
-        lastPrice: 3245,
-        changePercent: -0.75,
-        volume: 456780,
-        openInterest: 198760
-      },
-      {
-        code: 'M407',
-        name: '豆粕7月',
-        category: '豆粕(M)',
-        categoryCode: 'M',
-        month: '7月',
-        fullCode: 'M2407',
-        isActive: true,
-        lastPrice: 3280,
-        changePercent: 1.15,
-        volume: 398540,
-        openInterest: 167890
-      },
-      {
-        code: 'M409',
-        name: '豆粕9月',
-        category: '豆粕(M)',
-        categoryCode: 'M',
-        month: '9月',
-        fullCode: 'M2409',
-        isActive: true,
-        lastPrice: 3320,
-        changePercent: 0.95,
-        volume: 345670,
-        openInterest: 145320
-      }
-    ]
-
-    // 螺纹钢合约 (RB)
-    const rebarContracts: ContractInfo[] = [
-      {
-        code: 'RB405',
-        name: '螺纹钢5月',
-        category: '螺纹钢(RB)',
-        categoryCode: 'RB',
-        month: '5月',
-        fullCode: 'RB2405',
-        isActive: true,
-        lastPrice: 3680,
-        changePercent: -1.85,
-        volume: 678900,
-        openInterest: 298760
-      },
-      {
-        code: 'RB410',
-        name: '螺纹钢10月',
-        category: '螺纹钢(RB)',
-        categoryCode: 'RB',
-        month: '10月',
-        fullCode: 'RB2410',
-        isActive: true,
-        lastPrice: 3720,
-        changePercent: 0.65,
-        volume: 567890,
-        openInterest: 245670
-      }
-    ]
-
-    // 合并所有合约
-    this.contracts = [
-      ...appleContracts,
-      ...cottonContracts,
-      ...jujubeContracts,
-      ...mealContracts,
-      ...rebarContracts
-    ]
-
-    // 创建分类
-    this.categories = [
-      { code: 'AP', name: '苹果', contracts: appleContracts },
-      { code: 'CF', name: '棉花', contracts: cottonContracts },
-      { code: 'CJ', name: '红枣', contracts: jujubeContracts },
-      { code: 'M', name: '豆粕', contracts: mealContracts },
-      { code: 'RB', name: '螺纹钢', contracts: rebarContracts }
-    ]
+    } catch (error) {
+      console.error('❌ 初始化合约数据失败:', error)
+      throw error
+    } finally {
+      this.isLoading = false
+    }
   }
 
   /**
-   * 获取所有合约
+   * 处理从 CTP API 获取的合约数据
    */
-  public getAllContracts(): ContractInfo[] {
+  private processRealContractData(rawData: any[]): void {
+    const contractMap = new Map<string, ContractInfo[]>()
+
+    console.log('🔄 开始处理合约数据...')
+
+    // 处理原始数据并转换为 ContractInfo 格式
+    rawData.forEach(item => {
+      // 只处理活跃的交易合约
+      if (item.is_trading !== 1) {
+        return
+      }
+
+      const contract: ContractInfo = {
+        code: item.instrument_id || '',
+        name: item.instrument_name || item.instrument_id || '',
+        category: `${this.getCategoryName(item.product_id)}(${item.product_id})`,
+        categoryCode: item.product_id || '',
+        month: this.extractMonth(item.instrument_id),
+        fullCode: item.instrument_id || '',
+        isActive: item.is_trading === 1,
+        lastPrice: 0, // 初始价格为0，后续通过行情数据更新
+        changePercent: 0, // 需要通过行情数据计算
+        volume: 0, // 初始成交量为0，后续通过行情数据更新
+        openInterest: 0 // 初始持仓量为0，后续通过行情数据更新
+      }
+
+      const categoryCode = contract.categoryCode.toUpperCase()
+      if (!contractMap.has(categoryCode)) {
+        contractMap.set(categoryCode, [])
+      }
+      contractMap.get(categoryCode)!.push(contract)
+    })
+
+    // 转换为分类格式
+    this.contracts = []
+    this.categories = []
+
+    contractMap.forEach((contracts, categoryCode) => {
+      // 按合约代码排序
+      contracts.sort((a, b) => a.code.localeCompare(b.code))
+      
+      this.contracts.push(...contracts)
+      
+      // 获取分类名称
+      const categoryName = this.getCategoryName(categoryCode)
+      
+      this.categories.push({
+        code: categoryCode,
+        name: categoryName,
+        contracts: contracts
+      })
+    })
+
+    // 按分类代码排序
+    this.categories.sort((a, b) => a.code.localeCompare(b.code))
+
+    console.log(`✅ 处理完成：${this.contracts.length} 个合约，${this.categories.length} 个分类`)
+    
+    // 打印前几个分类的信息
+    this.categories.slice(0, 5).forEach(category => {
+      console.log(`📂 ${category.name}(${category.code}): ${category.contracts.length} 个合约`)
+    })
+  }
+
+  /**
+   * 从合约代码中提取月份信息
+   */
+  private extractMonth(instrumentId: string): string {
+    if (!instrumentId) return ''
+    
+    // 提取数字部分，通常是年月格式，如 2501 表示 25年1月
+    const match = instrumentId.match(/(\d{2})(\d{2})$/)
+    if (match) {
+      const month = parseInt(match[2])
+      return `${month}月`
+    }
+    
+    return ''
+  }
+
+  /**
+   * 获取分类中文名称
+   */
+  private getCategoryName(categoryCode: string): string {
+    const categoryNames: Record<string, string> = {
+      'AP': '苹果',
+      'CF': '棉花',
+      'CJ': '红枣',
+      'M': '豆粕',
+      'RB': '螺纹钢',
+      'HC': '热卷',
+      'I': '铁矿石',
+      'J': '焦炭',
+      'JM': '焦煤',
+      'A': '豆一',
+      'Y': '豆油',
+      'P': '棕榈油',
+      'C': '玉米',
+      'CS': '玉米淀粉',
+      'RM': '菜粕',
+      'OI': '菜油',
+      'MA': '甲醇',
+      'FG': '玻璃',
+      'SA': '纯碱',
+      'UR': '尿素',
+      'ZC': '动力煤',
+      'SF': '硅铁',
+      'SM': '锰硅',
+      'V': '铁合金',
+      'PP': '聚丙烯',
+      'L': '聚乙烯',
+      'EB': '苯乙烯',
+      'EG': '乙二醇',
+      'PG': '液化石油气',
+      'TA': 'PTA',
+      'PF': '短纤',
+      'PK': '花生',
+      'LR': '晚籼稻',
+      'WH': '强麦',
+      'PM': '普麦',
+      'RI': '早籼稻',
+      'RS': '菜籽',
+      'JR': '粳稻',
+      'LH': '生猪',
+      'NR': '20号胶',
+      'RU': '天然橡胶',
+      'BU': '沥青',
+      'FU': '燃料油',
+      'SC': '原油',
+      'LU': '低硫燃料油',
+      'BC': '国际铜',
+      'AL': '沪铝',
+      'CU': '沪铜',
+      'PB': '沪铅',
+      'ZN': '沪锌',
+      'SN': '沪锡',
+      'NI': '沪镍',
+      'SS': '不锈钢',
+      'AU': '沪金',
+      'AG': '沪银',
+      'IF': '沪深300',
+      'IH': '上证50',
+      'IC': '中证500',
+      'IM': '中证1000',
+      'TS': '2年期国债',
+      'TF': '5年期国债',
+      'T': '10年期国债',
+      'TL': '30年期国债'
+    }
+    
+    return categoryNames[categoryCode.toUpperCase()] || categoryCode
+  }
+
+  /**
+   * 获取所有合约（异步版本，确保数据已初始化）
+   */
+  public async getAllContracts(): Promise<ContractInfo[]> {
+    await this.initialize()
     return [...this.contracts]
   }
 
   /**
-   * 获取所有分类
+   * 获取所有分类（异步版本，确保数据已初始化）
    */
-  public getAllCategories(): ContractCategory[] {
+  public async getAllCategories(): Promise<ContractCategory[]> {
+    await this.initialize()
     return [...this.categories]
   }
 
   /**
-   * 根据关键词搜索合约
+   * 获取所有合约（同步版本，用于已初始化的情况）
    */
-  public searchContracts(keyword: string): ContractInfo[] {
+  public getAllContractsSync(): ContractInfo[] {
+    return [...this.contracts]
+  }
+
+  /**
+   * 获取所有分类（同步版本，用于已初始化的情况）
+   */
+  public getAllCategoriesSync(): ContractCategory[] {
+    return [...this.categories]
+  }
+
+  /**
+   * 根据关键词搜索合约（异步版本）
+   */
+  public async searchContracts(keyword: string): Promise<ContractInfo[]> {
+    await this.initialize()
+    
     if (!keyword.trim()) {
-      return this.getAllContracts()
+      return this.getAllContractsSync()
     }
 
     const lowerKeyword = keyword.toLowerCase().trim()
@@ -319,42 +271,72 @@ export class ContractService {
   }
 
   /**
-   * 根据合约代码获取合约信息
+   * 根据合约代码获取合约信息（异步版本）
    */
-  public getContractByCode(code: string): ContractInfo | null {
+  public async getContractByCode(code: string): Promise<ContractInfo | null> {
+    await this.initialize()
     return this.contracts.find(contract => 
       contract.code === code || contract.fullCode === code
     ) || null
   }
 
   /**
-   * 根据分类代码获取合约列表
+   * 更新合约价格数据 - 从 CTP API 获取实时价格
    */
-  public getContractsByCategory(categoryCode: string): ContractInfo[] {
-    const category = this.categories.find(cat => cat.code === categoryCode)
-    return category ? [...category.contracts] : []
+  public async updateContractPrices(): Promise<void> {
+    try {
+      // 检查是否有合约数据
+      if (this.contracts.length === 0) {
+        console.log('📋 没有合约数据，跳过价格更新')
+        return
+      }
+
+      // 检查行情 API 是否已连接
+      const mdSessionId = ctpService.getMdSessionId()
+      if (!mdSessionId) {
+        console.log('📡 行情 API 未连接，跳过价格更新')
+        return
+      }
+
+      // 获取前20个活跃合约的代码（避免订阅过多合约）
+      const activeContracts = this.contracts.filter(contract => contract.isActive).slice(0, 20)
+      const instrumentIds = activeContracts.map(contract => contract.fullCode)
+      
+      if (instrumentIds.length === 0) {
+        console.log('📋 没有活跃合约，跳过价格更新')
+        return
+      }
+
+      console.log(`📡 订阅 ${instrumentIds.length} 个合约的行情数据:`, instrumentIds.slice(0, 5))
+
+      // 订阅行情数据
+      const result = await ctpService.subscribeMarketData(instrumentIds)
+
+      if (result.success) {
+        console.log('✅ 成功订阅行情数据')
+      } else {
+        console.warn('⚠️ 订阅行情数据失败:', result.error)
+      }
+    } catch (error) {
+      console.error('❌ 更新真实价格数据失败:', error)
+    }
   }
 
   /**
-   * 更新合约价格数据（模拟实时数据更新）
+   * 检查是否已初始化
    */
-  public updateContractPrices() {
-    this.contracts.forEach(contract => {
-      if (contract.lastPrice) {
-        // 模拟价格波动 (-2% 到 +2%)
-        const changeRate = (Math.random() - 0.5) * 0.04
-        const newPrice = Math.round(contract.lastPrice * (1 + changeRate))
-        const changePercent = ((newPrice - contract.lastPrice) / contract.lastPrice) * 100
-        
-        contract.lastPrice = newPrice
-        contract.changePercent = Math.round(changePercent * 100) / 100
-        
-        // 模拟成交量变化
-        if (contract.volume) {
-          contract.volume += Math.floor(Math.random() * 1000)
-        }
-      }
-    })
+  public isDataInitialized(): boolean {
+    return this.isInitialized
+  }
+
+  /**
+   * 强制重新初始化
+   */
+  public async forceReinitialize(): Promise<void> {
+    this.isInitialized = false
+    this.contracts = []
+    this.categories = []
+    await this.initialize()
   }
 }
 

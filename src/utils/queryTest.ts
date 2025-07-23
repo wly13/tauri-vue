@@ -1,12 +1,12 @@
 // 查询功能测试工具
-import { CtpService } from '../services/ctpService'
+import { ctpService } from '../services/ctpService'
 import { UserStorageService } from '../services/userStorage'
 
 export class QueryTest {
-  private ctpService: CtpService
+  private ctpService = ctpService
 
   constructor() {
-    this.ctpService = new CtpService()
+    // 使用单例实例
   }
 
   // 测试账户查询

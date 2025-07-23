@@ -152,6 +152,40 @@ export interface TradeInfo {
   invest_unit_id: string;
 }
 
+export interface InstrumentInfo {
+  instrument_id: string;
+  exchange_id: string;
+  instrument_name: string;
+  exchange_inst_id: string;
+  product_id: string;
+  product_class: string;
+  delivery_year: number;
+  delivery_month: number;
+  max_market_order_volume: number;
+  min_market_order_volume: number;
+  max_limit_order_volume: number;
+  min_limit_order_volume: number;
+  volume_multiple: number;
+  price_tick: number;
+  create_date: string;
+  open_date: string;
+  expire_date: string;
+  start_deliv_date: string;
+  end_deliv_date: string;
+  inst_life_phase: string;
+  is_trading: number;
+  position_type: string;
+  position_date_type: string;
+  long_margin_ratio: number;
+  short_margin_ratio: number;
+  max_margin_side_algorithm: string;
+  underlying_inst_id: string;
+  strike_price: number;
+  options_type: string;
+  underlying_multiple: number;
+  combination_type: string;
+}
+
 export interface PositionInfo {
   instrument_id: string;
   broker_id: string;

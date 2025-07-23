@@ -74,6 +74,12 @@
       </div>
     </div>
   </div>
+
+  <!-- 重连对话框 -->
+  <ReconnectDialog
+    v-model:visible="showReconnectDialog"
+    @reconnected="handleReconnected"
+  />
 </template>
 
 <script setup lang="ts">
@@ -84,17 +90,20 @@ import { emit } from '@tauri-apps/api/event'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import type { ContractInfo, ContractCategory } from '@/types/trading'
-import { contractService } from '@/services/contractService'
 import { useContractStore } from '@/stores/contractStore'
+import { contractService } from '@/services/contractService'
+import ReconnectDialog from '@/components/ReconnectDialog.vue'
 
 // 响应式数据
 const searchKeyword = ref('')
 const selectedContract = ref<ContractInfo | null>(null)
 const allCategories = ref<ContractCategory[]>([])
 const priceUpdateInterval = ref<number | null>(null)
+const showReconnectDialog = ref(false)
 
 // 合约状态管理
-const { setCurrentContract, setPanelContract } = useContractStore()
+const { setCurrentContract } = useContractStore()
+
 
 // 计算属性
 const filteredCategories = computed(() => {
@@ -188,15 +197,45 @@ const getChangeClass = (changePercent?: number): string => {
 }
 
 // 更新价格数据
-const updatePrices = () => {
-  contractService.updateContractPrices()
-  allCategories.value = contractService.getAllCategories()
+const updatePrices = async () => {
+  try {
+    await contractService.updateContractPrices()
+    allCategories.value = contractService.getAllCategoriesSync()
+  } catch (error) {
+    console.error('更新价格数据失败:', error)
+  }
+}
+
+// 初始化合约数据
+const initializeContractData = async () => {
+  try {
+    console.log('🔍 初始化合约数据...')
+    allCategories.value = await contractService.getAllCategories()
+    console.log('✅ 合约数据初始化完成')
+  } catch (error) {
+    console.error('❌ 初始化合约数据失败:', error)
+
+    // 检查是否是连接问题
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    if (errorMessage.includes('未连接') || errorMessage.includes('登录')) {
+      showReconnectDialog.value = true
+    } else {
+      message.error('获取合约数据失败，请检查 CTP 连接状态')
+    }
+    allCategories.value = []
+  }
+}
+
+// 处理重连成功
+const handleReconnected = async () => {
+  console.log('🔄 重连成功，重新初始化合约数据...')
+  await initializeContractData()
 }
 
 // 生命周期
 onMounted(async () => {
   // 初始化数据
-  allCategories.value = contractService.getAllCategories()
+  await initializeContractData()
 
   // 启动价格更新定时器
   priceUpdateInterval.value = window.setInterval(updatePrices, 3000)
@@ -208,9 +247,9 @@ onMounted(async () => {
   const unlistenBlur = await currentWindow.listen('tauri://blur', () => {
     console.log('搜索窗口失去焦点，准备关闭')
     // 延迟一点时间关闭，避免点击窗口内元素时立即关闭
-    setTimeout(() => {
-      closeWindow()
-    }, 100)
+    // setTimeout(() => {
+    //   closeWindow()
+    // }, 100)
   })
 
   // 存储取消监听函数，在组件卸载时清理

@@ -281,7 +281,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { message } from 'ant-design-vue'
-import { CtpService } from '../services/ctpService'
+import { ctpService } from '../services/ctpService'
 import { UserStorageService } from '../services/userStorage'
 import { MarketDataInfo, OrderRequest, PositionInfo, AccountInfo } from '../types/ctp'
 import { runTradingPanelTest } from '../utils/tradingPanelTest'
@@ -309,8 +309,7 @@ interface SelectedCell {
   quantity?: number  // 下单数量（可选）
 }
 
-// CTP服务实例
-const ctpService = new CtpService()
+// CTP服务实例（使用单例）
 const marketData = ref<MarketDataInfo | null>(null)
 const accountInfo = ref<AccountInfo | null>(null)
 const positionInfo = ref<PositionInfo[]>([])

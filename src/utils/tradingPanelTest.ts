@@ -1,13 +1,13 @@
 // TradingPanel 测试工具
-import { CtpService } from '../services/ctpService'
+import { ctpService } from '../services/ctpService'
 import { UserStorageService } from '../services/userStorage'
 import { CtpConfigManager } from '../config/ctpConfig'
 
 export class TradingPanelTest {
-  private ctpService: CtpService
+  private ctpService = ctpService
 
   constructor() {
-    this.ctpService = new CtpService()
+    // 使用单例实例
   }
 
   // 测试CTP连接

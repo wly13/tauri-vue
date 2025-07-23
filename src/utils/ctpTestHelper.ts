@@ -1,5 +1,5 @@
 // CTP测试辅助工具
-import { CtpService } from '../services/ctpService';
+import { ctpService } from '../services/ctpService';
 import { UserStorageService } from '../services/userStorage';
 import { ConnectionStatus, LogLevel } from '../types/ctp';
 
@@ -11,11 +11,11 @@ export interface TestResult {
 }
 
 export class CtpTestHelper {
-  private ctpService: CtpService;
+  private ctpService = ctpService;
   private testResults: TestResult[] = [];
 
   constructor() {
-    this.ctpService = new CtpService();
+    // 使用单例实例
   }
 
   // 运行完整的CTP连接测试

@@ -89,12 +89,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { CtpService } from '../services/ctpService'
+import { ctpService } from '../services/ctpService'
 import { UserStorageService } from '../services/userStorage'
 import { ConnectionStatus, LogEntry, MarketDataInfo } from '../types/ctp'
 import { CtpTestHelper, TestResult } from '../utils/ctpTestHelper'
-
-const ctpService = new CtpService()
 
 const mdStatus = ref<ConnectionStatus>('disconnected' as ConnectionStatus)
 const traderStatus = ref<ConnectionStatus>('disconnected' as ConnectionStatus)

@@ -19,7 +19,9 @@ fn main() {
             ctp_commands::insert_order,
             ctp_commands::cancel_order,
             ctp_commands::query_account,
-            ctp_commands::query_position
+            ctp_commands::query_position,
+            ctp_commands::query_instruments,
+            ctp_commands::validate_trader_session
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

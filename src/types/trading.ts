@@ -5,6 +5,36 @@ import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 // 菜单操作类型
 export type MenuAction = 'save' | 'load' | 'search' | 'sync' | 'update' | 'exit'
 
+// 合约信息
+export interface ContractInfo {
+  code: string          // 合约代码，如 AP405
+  name: string          // 合约名称，如 苹果5月
+  category: string      // 合约分类，如 苹果(AP)
+  categoryCode: string  // 分类代码，如 AP
+  month: string         // 交割月份，如 5月
+  fullCode: string      // 完整代码，如 AP2405
+  isActive: boolean     // 是否活跃合约
+  lastPrice?: number    // 最新价格
+  changePercent?: number // 涨跌幅
+  volume?: number       // 成交量
+  openInterest?: number // 持仓量
+}
+
+// 合约分类
+export interface ContractCategory {
+  code: string          // 分类代码，如 AP
+  name: string          // 分类名称，如 苹果
+  contracts: ContractInfo[]  // 该分类下的合约列表
+}
+
+// 搜索对话框状态
+export interface SearchDialogState {
+  visible: boolean
+  searchKeyword: string
+  selectedContract: ContractInfo | null
+  filteredContracts: ContractInfo[]
+}
+
 // 窗口状态
 export interface WindowState {
   x: number

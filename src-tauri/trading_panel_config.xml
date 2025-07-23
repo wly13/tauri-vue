@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TradingPanelConfiguration>
+  <Header>
+    <Version>1.0</Version>
+    <Timestamp>2025-07-23T10:15:24.157Z</Timestamp>
+    <ActiveSet>1</ActiveSet>
+    <TotalPanels>1</TotalPanels>
+  </Header>
+  <Panels>
+    <Panel>
+      <ID>trading-panel-1-1753265702880</ID>
+      <SetNumber>1</SetNumber>
+      <Title>交易面板 - 集合1</Title>
+      <Window>
+        <Position>
+          <X>525</X>
+          <Y>263</Y>
+        </Position>
+        <Size>
+          <Width>549</Width>
+          <Height>1464</Height>
+        </Size>
+        <State>
+          <Visible>true</Visible>
+          <Minimized>false</Minimized>
+          <Maximized>false</Maximized>
+        </State>
+      </Window>
+      <TradingState>
+        <CurrentPrice>3067</CurrentPrice>
+        <FontSize>11</FontSize>
+        <CellHeight>18</CellHeight>
+        <OrderType>A</OrderType>
+        <LightOrderQuantity>1</LightOrderQuantity>
+        <HeavyOrderQuantity>5</HeavyOrderQuantity>
+        <PositionMode>open</PositionMode>
+        <CancelMode>limited</CancelMode>
+        <MaxCancelOrders>489</MaxCancelOrders>
+        <CurrentCancelCount>0</CurrentCancelCount>
+      </TradingState>
+      <MarketData>
+        <TotalVolume>865981</TotalVolume>
+        <TotalPosition>269331</TotalPosition>
+        <DailyPositionChange>2565</DailyPositionChange>
+        <PriceChangePercent>-0.13</PriceChangePercent>
+      </MarketData>
+      <Timestamp>2025-07-23T10:15:24.157Z</Timestamp>
+    </Panel>
+  </Panels>
+</TradingPanelConfiguration>

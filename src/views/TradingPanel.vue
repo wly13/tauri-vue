@@ -6,7 +6,9 @@
       <div class="left-control-panel">
         <!-- 合约信息 -->
         <div class="contract-header">
-          <div class="contract-name">rb2509</div>
+          <div class="contract-name" :title="currentContract ? `${currentContract.name} (${currentContract.code})` : 'rb2509'">
+            {{ currentContract ? currentContract.code : 'rb2509' }}
+          </div>
           <div class="zoom-controls">
             <button @click="zoomIn" class="zoom-btn">+</button>
             <button @click="zoomOut" class="zoom-btn">-</button>
@@ -14,6 +16,28 @@
         </div>
 
         <div class="time-display">{{ currentTime }}</div>
+
+        <!-- 合约详细信息 -->
+        <div class="contract-info" v-if="currentContract">
+          <div class="contract-detail">
+            <span class="label">合约:</span>
+            <span class="value">{{ currentContract.name }}</span>
+          </div>
+          <div class="contract-detail">
+            <span class="label">代码:</span>
+            <span class="value">{{ currentContract.fullCode }}</span>
+          </div>
+          <div class="contract-detail" v-if="currentContract.lastPrice">
+            <span class="label">最新价:</span>
+            <span class="value price">{{ currentContract.lastPrice.toLocaleString() }}</span>
+          </div>
+          <div class="contract-detail" v-if="currentContract.changePercent !== undefined">
+            <span class="label">涨跌幅:</span>
+            <span :class="['value', 'change', getContractChangeClass(currentContract.changePercent)]">
+              {{ formatContractChangePercent(currentContract.changePercent) }}
+            </span>
+          </div>
+        </div>
 
         <!-- CTP 连接状态 -->
         <div class="ctp-status">
@@ -266,6 +290,8 @@ import { startGlobalPriceTest, stopGlobalPriceTest } from '../utils/priceUpdateT
 import { runDynamicOrdersTest } from '../utils/dynamicOrdersTest'
 import { emit, listen } from '@tauri-apps/api/event'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { useContractStore } from '@/stores/contractStore'
+import type { ContractInfo } from '@/types/trading'
 
 interface OrderData {
   price: number
@@ -290,6 +316,10 @@ const accountInfo = ref<AccountInfo | null>(null)
 const positionInfo = ref<PositionInfo[]>([])
 const isCtpConnected = ref(false)
 const isUsingRealData = ref(false)
+
+// 合约状态管理
+const { currentContract, getPanelContract } = useContractStore()
+const panelContract = ref<ContractInfo | null>(null)
 
 // 交易相关
 const selectedCell = ref<SelectedCell | null>(null)  // 当前选中的单元格（用于下单/撤单）
@@ -1411,6 +1441,54 @@ const startPriceTest = () => {
   console.log(`🧪 开始价格测试 - 类型: ${selectedType}`)
 }
 
+// 初始化合约信息
+const initializeContractInfo = () => {
+  // 检查是否有当前选中的合约
+  if (currentContract.value) {
+    console.log('使用当前选中的合约:', currentContract.value)
+    panelContract.value = currentContract.value
+
+    // 订阅合约行情
+    subscribeContractMarketData(currentContract.value.code)
+  } else {
+    console.log('未找到选中的合约，使用默认合约 rb2509')
+    // 使用默认合约
+    subscribeContractMarketData('rb2509')
+  }
+}
+
+// 订阅合约行情数据
+const subscribeContractMarketData = async (contractCode: string) => {
+  try {
+    console.log(`订阅合约 ${contractCode} 的行情数据`)
+
+    // 如果CTP已连接，订阅实时行情
+    if (isCtpConnected.value) {
+      await ctpService.subscribeMarketData([contractCode])
+      message.success(`已订阅 ${contractCode} 实时行情`)
+    } else {
+      console.log('CTP未连接，使用模拟行情数据')
+      // 可以在这里添加模拟行情数据的逻辑
+    }
+  } catch (error) {
+    console.error(`订阅合约 ${contractCode} 行情失败:`, error)
+    message.error(`订阅 ${contractCode} 行情失败`)
+  }
+}
+
+// 格式化合约涨跌幅
+const formatContractChangePercent = (percent: number): string => {
+  const sign = percent >= 0 ? '+' : ''
+  return `${sign}${percent.toFixed(2)}%`
+}
+
+// 获取合约涨跌幅样式类
+const getContractChangeClass = (changePercent: number): string => {
+  if (changePercent > 0) return 'positive'
+  if (changePercent < 0) return 'negative'
+  return 'neutral'
+}
+
 // 根据行情数据更新价格
 const updatePricesFromMarketData = (data: MarketDataInfo) => {
   if (!data) return
@@ -1508,6 +1586,9 @@ onMounted(async () => {
   document.addEventListener('keydown', handleKeydown)
   updateTime() // 组件挂载时开始更新时间
 
+  // 初始化合约信息
+  initializeContractInfo()
+
   // 初始化价格档位数据
   generatePriceOrders(currentPrice.value)
 
@@ -1544,8 +1625,9 @@ onUnmounted(() => {
   }
 
   // 取消订阅行情数据
-  ctpService.unsubscribeMarketData(['rb2509']).catch(error => {
-    console.error('取消订阅行情失败:', error)
+  const contractCode = panelContract.value?.code || 'rb2509'
+  ctpService.unsubscribeMarketData([contractCode]).catch(error => {
+    console.error(`取消订阅 ${contractCode} 行情失败:`, error)
   })
 
   // 停止价格测试
@@ -1630,6 +1712,51 @@ onUnmounted(() => {
 
 .price-change.negative {
   color: red;
+}
+
+/* 合约信息样式 */
+.contract-info {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 8px;
+  margin: 5px 0;
+  font-size: 11px;
+}
+
+.contract-detail {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 2px 0;
+}
+
+.contract-detail .label {
+  color: #666;
+  font-weight: 500;
+  min-width: 45px;
+}
+
+.contract-detail .value {
+  color: #333;
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+}
+
+.contract-detail .value.price {
+  color: #007bff;
+}
+
+.contract-detail .value.change.positive {
+  color: #dc3545;
+}
+
+.contract-detail .value.change.negative {
+  color: #28a745;
+}
+
+.contract-detail .value.change.neutral {
+  color: #6c757d;
 }
 
 .zero-values {

@@ -1,14 +1,129 @@
 // 应用操作组合式函数
 
+import { ref } from 'vue'
 import { message } from 'ant-design-vue'
 import { Window } from '@tauri-apps/api/window'
-import type { MenuAction } from '@/types/trading'
+import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
+import type { MenuAction, ContractInfo } from '@/types/trading'
+import { useContractStore } from '@/stores/contractStore'
 
-export function useAppActions() {
-  // 搜索功能
+export function useAppActions(
+  openTradingPanelCallback?: (setNumber: number, tradeName?: string) => Promise<void>,
+  getCurrentActiveSet?: () => number
+) {
+  // 搜索窗口引用
+  const searchWindow = ref<WebviewWindow | null>(null)
+
+  // 合约状态管理
+  const { setCurrentContract, setPanelContract } = useContractStore()
+
+  // 搜索功能 - 创建独立的搜索窗口
   const openSearchDialog = async () => {
-    message.info('搜索功能 - 可搜索合约、策略等')
-    // TODO: 实现搜索对话框
+    try {
+      console.log('创建独立的合约搜索窗口')
+
+      // 检查是否已有搜索窗口
+      if (searchWindow.value) {
+        // 如果窗口已存在，聚焦到该窗口
+        await searchWindow.value.setFocus()
+        await searchWindow.value.unminimize()
+        return
+      }
+
+      // 创建新的搜索窗口
+      const windowId = `contract-search-${Date.now()}`
+
+      const window = new WebviewWindow(windowId, {
+        url: '#/contract-search',
+        title: '合约订阅与管理',
+        width: 800,
+        height: 600,
+        resizable: true,
+        decorations: true,
+        alwaysOnTop: true,
+        center: true,
+        skipTaskbar: false,
+        visible: true,
+        minimizable: true,
+        maximizable: false,
+        closable: true,
+        focus: true
+      })
+
+      // 监听窗口创建成功
+      window.once('tauri://created', () => {
+        searchWindow.value = window
+        console.log('合约搜索窗口创建成功')
+      })
+
+      // 监听窗口关闭
+      window.once('tauri://close-requested', () => {
+        searchWindow.value = null
+        console.log('合约搜索窗口已关闭')
+      })
+
+      // 监听窗口销毁
+      window.once('tauri://destroyed', () => {
+        if (searchWindow.value) {
+          searchWindow.value = null
+          console.log('合约搜索窗口已销毁')
+        }
+      })
+
+      // 监听窗口创建失败
+      window.once('tauri://error', (error) => {
+        console.error('创建合约搜索窗口失败:', error)
+        message.error(`创建搜索窗口失败: ${error}`)
+        searchWindow.value = null
+      })
+
+    } catch (error) {
+      console.error('打开合约搜索窗口失败:', error)
+      message.error(`打开搜索窗口失败: ${error instanceof Error ? error.message : '未知错误'}`)
+    }
+  }
+
+  // 处理合约选择
+  const handleContractSelected = async (contract: ContractInfo) => {
+    console.log('选择了合约:', contract)
+
+    try {
+      // 打开合约交易面板
+      await openContractTradingPanel(contract)
+
+      message.success(`已打开 ${contract.name} 合约面板`)
+    } catch (error) {
+      console.error('打开合约面板失败:', error)
+      message.error('打开合约面板失败')
+    }
+  }
+
+  // 打开合约交易面板
+  const openContractTradingPanel = async (contract: ContractInfo) => {
+    console.log(`准备打开合约 ${contract.code} 的交易面板`)
+
+    // 获取当前选中的集合编号
+    const activeSetNumber = getCurrentActiveSet ? getCurrentActiveSet() : 1
+    console.log(`使用当前选中的集合: ${activeSetNumber}`)
+
+    // 设置当前选中的合约
+    setCurrentContract(contract)
+
+    // 使用合约代码作为面板标题
+    const tradeName = `${contract.name} (${contract.code})`
+
+    // 调用传入的回调函数打开交易面板，使用当前选中的集合
+    if (openTradingPanelCallback) {
+      await openTradingPanelCallback(activeSetNumber, tradeName)
+
+      // 为新打开的面板设置合约信息
+      const panelId = `trading-panel-${activeSetNumber}-${Date.now()}`
+      setPanelContract(panelId, contract)
+
+      console.log(`已为集合${activeSetNumber}打开合约${contract.code}的交易面板`)
+    } else {
+      console.warn('未提供 openTradingPanelCallback，无法打开交易面板')
+    }
   }
 
   // 同步数据
@@ -91,7 +206,10 @@ export function useAppActions() {
   }
 
   return {
+    searchWindow,
     openSearchDialog,
+    handleContractSelected,
+    openContractTradingPanel,
     syncData,
     checkForUpdates,
     exitApplication,

@@ -19,6 +19,7 @@ import { useConfigManager } from "@/composables/trading-controller/useConfigMana
 import { useXMLConfig } from "@/composables/trading-controller/useXMLConfig";
 import { useAppActions } from "@/composables/trading-controller/useAppActions";
 import { useSystemMenu } from "@/composables/trading-controller/useSystemMenu";
+import { useContractEvents } from "@/composables/useContractEvents";
 import { createKeyboardHandler } from "@/utils/keyboardUtils";
 import type { MenuAction } from "@/types/trading";
 
@@ -38,9 +39,15 @@ const { activeSet, saveConfiguration, loadConfiguration } = useConfigManager();
 
 const { autoLoadXMLConfiguration, loadXMLConfiguration } = useXMLConfig();
 
-const { configureTradingSet, handleMenuAction } = useAppActions();
+const {
+  configureTradingSet,
+  handleMenuAction
+} = useAppActions(openTradingPanel, () => activeSet.value);
 
 const { showMainContextMenu, showSetContextMenu } = useSystemMenu();
+
+// 初始化合约事件监听
+useContractEvents(openTradingPanel, () => activeSet.value);
 
 // 处理交易集按钮点击
 const handleSetClick = async (setNumber: number) => {

@@ -27,7 +27,8 @@
       "csp": null,
       "capabilities": [
         "default",
-        "trading-panels"
+        "trading-panels",
+        "contract-search"
       ]
     }
   },

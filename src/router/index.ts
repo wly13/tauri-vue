@@ -12,6 +12,7 @@ import TradingController from '../views/TradingController.vue'
 import PriceBoard from '../views/PriceBoard.vue'
 import CtpTest from '../views/CtpTest.vue'
 import ServerConfig from '../views/ServerConfig.vue'
+import ContractSearch from '../views/ContractSearch.vue'
 
 const routes = [
     { path: '/', name: 'Index', component: Home },
@@ -28,6 +29,7 @@ const routes = [
     { path: '/trading-controller', name: 'TradingController', component: TradingController },
     { path: '/price-board', name: 'PriceBoard', component: PriceBoard },
     { path: '/server-config', name: 'ServerConfig', component: ServerConfig },
+    { path: '/contract-search', name: 'ContractSearch', component: ContractSearch },
 ]
 
 const router = createRouter({

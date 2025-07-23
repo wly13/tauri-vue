@@ -51,6 +51,7 @@
     "core:menu:allow-set-text",
     "core:menu:allow-is-enabled",
     "core:menu:allow-set-enabled",
-    "core:menu:allow-set-accelerator"
+    "core:menu:allow-set-accelerator",
+    "core:window:allow-destroy"
   ]
 }

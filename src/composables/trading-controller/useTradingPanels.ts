@@ -132,10 +132,26 @@ export function useTradingPanels() {
   const closeAllTradingPanels = async () => {
     try {
       const panelEntries = Array.from(tradingPanels.value.entries())
-      for (const [, panel] of panelEntries) {
-        await panel.close()
+      console.log(`准备关闭 ${panelEntries.length} 个交易面板`)
+
+      for (const [panelId, panel] of panelEntries) {
+        try {
+          // 检查面板是否有效（不是临时占位符）
+          if (panel && typeof panel.close === 'function') {
+            console.log(`关闭交易面板: ${panelId}`)
+            await panel.close()
+          } else {
+            console.log(`跳过无效面板: ${panelId}`)
+          }
+        } catch (error) {
+          console.error(`关闭面板 ${panelId} 失败:`, error)
+          // 继续关闭其他面板，不因单个面板失败而中断
+        }
       }
+
+      // 清空面板映射
       tradingPanels.value.clear()
+      console.log('所有交易面板关闭完成')
     } catch (error) {
       console.error('关闭所有面板失败:', error)
     }

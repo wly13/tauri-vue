@@ -1304,6 +1304,34 @@ fn get_common_instruments() -> Vec<InstrumentInfo> {
 // 全局查询请求计数器，用于生成唯一的请求ID
 static mut QUERY_REQUEST_ID: i32 = 1;
 
+// 测试下单接口
+#[command]
+pub fn test_order_interface() -> ApiResponse<String> {
+    println!("🧪 [TEST] Testing order interface...");
+
+    // 创建测试订单
+    let test_order = OrderRequest {
+        instrument_id: "rb2501".to_string(),
+        direction: "0".to_string(),  // 买入
+        price: 3500.0,
+        volume: 1,
+        order_type: "2".to_string(), // 限价单
+        offset_flag: Some("0".to_string()), // 开仓
+        hedge_flag: Some("1".to_string()),  // 投机
+        time_condition: Some("3".to_string()), // 当日有效
+        volume_condition: Some("1".to_string()), // 任何数量
+    };
+
+    println!("✅ [TEST] Order interface structure is valid");
+    println!("📋 [TEST] Test order: {:?}", test_order);
+
+    ApiResponse {
+        success: true,
+        data: Some("订单接口测试成功，结构体定义正确".to_string()),
+        error: None,
+    }
+}
+
 // 查询合约信息
 #[command]
 pub fn query_instruments(

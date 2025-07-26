@@ -262,6 +262,22 @@ fn get_next_order_ref() -> String {
     format!("{}", ref_id)
 }
 
+// 安全地复制字符串到CTP字符数组
+fn copy_str_to_ctp_array(src: &str, dst: &mut [i8]) {
+    let src_bytes = src.as_bytes();
+    let max_len = std::cmp::min(src_bytes.len(), dst.len() - 1);
+
+    // 清零数组
+    for i in 0..dst.len() {
+        dst[i] = 0;
+    }
+
+    // 复制字符串
+    for i in 0..max_len {
+        dst[i] = src_bytes[i] as i8;
+    }
+}
+
 // 安全的 MD API 创建函数
 fn create_md_api_safe(
     session_id: &str,
@@ -673,10 +689,10 @@ pub fn insert_order(
         }
         drop(login_status); // 释放锁
 
-        let apis = TRADER_APIS.lock().unwrap();
+        let mut apis = TRADER_APIS.lock().unwrap();
         let login_info = SESSION_LOGIN_INFO.lock().unwrap();
 
-        if let (Some(api), Some(account_config)) = (apis.get(&session_id), login_info.get(&session_id)) {
+        if let (Some(api), Some(account_config)) = (apis.get_mut(&session_id), login_info.get(&session_id)) {
             println!("✅ [DEBUG] Found Trader API and login info for session: {}", session_id);
 
             // 引入CTP相关类型
@@ -686,27 +702,14 @@ pub fn insert_order(
             let mut input_order = CThostFtdcInputOrderField::default();
 
             // 填充基本信息
-            let broker_id_bytes = account_config.broker_id.as_bytes();
-            let investor_id_bytes = account_config.account.as_bytes();
-            let user_id_bytes = account_config.account.as_bytes();
-            let instrument_id_bytes = order.instrument_id.as_bytes();
-
-            // 安全地复制字符串到固定长度数组
-            let broker_len = std::cmp::min(broker_id_bytes.len(), input_order.BrokerID.len() - 1);
-            let investor_len = std::cmp::min(investor_id_bytes.len(), input_order.InvestorID.len() - 1);
-            let user_len = std::cmp::min(user_id_bytes.len(), input_order.UserID.len() - 1);
-            let instrument_len = std::cmp::min(instrument_id_bytes.len(), input_order.InstrumentID.len() - 1);
-
-            input_order.BrokerID[..broker_len].copy_from_slice(&broker_id_bytes[..broker_len]);
-            input_order.InvestorID[..investor_len].copy_from_slice(&investor_id_bytes[..investor_len]);
-            input_order.UserID[..user_len].copy_from_slice(&user_id_bytes[..user_len]);
-            input_order.InstrumentID[..instrument_len].copy_from_slice(&instrument_id_bytes[..instrument_len]);
+            copy_str_to_ctp_array(&account_config.broker_id, &mut input_order.BrokerID);
+            copy_str_to_ctp_array(&account_config.account, &mut input_order.InvestorID);
+            copy_str_to_ctp_array(&account_config.account, &mut input_order.UserID);
+            copy_str_to_ctp_array(&order.instrument_id, &mut input_order.InstrumentID);
 
             // 设置订单引用
             let order_ref = get_next_order_ref();
-            let order_ref_bytes = order_ref.as_bytes();
-            let ref_len = std::cmp::min(order_ref_bytes.len(), input_order.OrderRef.len() - 1);
-            input_order.OrderRef[..ref_len].copy_from_slice(&order_ref_bytes[..ref_len]);
+            copy_str_to_ctp_array(&order_ref, &mut input_order.OrderRef);
 
             // 设置买卖方向
             input_order.Direction = if order.direction == "0" {
@@ -772,9 +775,7 @@ pub fn insert_order(
             println!("📤 [DEBUG] Calling ReqOrderInsert with order_ref: {}, request_id: {}", order_ref, request_id);
 
             // 调用CTP API插入订单
-            let result = unsafe {
-                api.ReqOrderInsert(&mut input_order, request_id)
-            };
+            let result = api.req_order_insert(&mut input_order, request_id);
 
             if result == 0 {
                 println!("✅ [DEBUG] ReqOrderInsert successful");
@@ -820,10 +821,10 @@ pub fn cancel_order(
         }
         drop(login_status); // 释放锁
 
-        let apis = TRADER_APIS.lock().unwrap();
+        let mut apis = TRADER_APIS.lock().unwrap();
         let login_info = SESSION_LOGIN_INFO.lock().unwrap();
 
-        if let (Some(api), Some(account_config)) = (apis.get(&session_id), login_info.get(&session_id)) {
+        if let (Some(api), Some(account_config)) = (apis.get_mut(&session_id), login_info.get(&session_id)) {
             println!("✅ [DEBUG] Found Trader API and login info for session: {}", session_id);
 
             // 引入CTP相关类型
@@ -833,30 +834,15 @@ pub fn cancel_order(
             let mut input_order_action = CThostFtdcInputOrderActionField::default();
 
             // 填充基本信息
-            let broker_id_bytes = account_config.broker_id.as_bytes();
-            let investor_id_bytes = account_config.account.as_bytes();
-            let user_id_bytes = account_config.account.as_bytes();
-            let instrument_id_bytes = cancel_request.instrument_id.as_bytes();
-            let order_ref_bytes = cancel_request.order_ref.as_bytes();
+            copy_str_to_ctp_array(&account_config.broker_id, &mut input_order_action.BrokerID);
+            copy_str_to_ctp_array(&account_config.account, &mut input_order_action.InvestorID);
+            copy_str_to_ctp_array(&account_config.account, &mut input_order_action.UserID);
+            copy_str_to_ctp_array(&cancel_request.instrument_id, &mut input_order_action.InstrumentID);
+            copy_str_to_ctp_array(&cancel_request.order_ref, &mut input_order_action.OrderRef);
 
-            // 安全地复制字符串到固定长度数组
-            let broker_len = std::cmp::min(broker_id_bytes.len(), input_order_action.BrokerID.len() - 1);
-            let investor_len = std::cmp::min(investor_id_bytes.len(), input_order_action.InvestorID.len() - 1);
-            let user_len = std::cmp::min(user_id_bytes.len(), input_order_action.UserID.len() - 1);
-            let instrument_len = std::cmp::min(instrument_id_bytes.len(), input_order_action.InstrumentID.len() - 1);
-            let order_ref_len = std::cmp::min(order_ref_bytes.len(), input_order_action.OrderRef.len() - 1);
-
-            input_order_action.BrokerID[..broker_len].copy_from_slice(&broker_id_bytes[..broker_len]);
-            input_order_action.InvestorID[..investor_len].copy_from_slice(&investor_id_bytes[..investor_len]);
-            input_order_action.UserID[..user_len].copy_from_slice(&user_id_bytes[..user_len]);
-            input_order_action.InstrumentID[..instrument_len].copy_from_slice(&instrument_id_bytes[..instrument_len]);
-            input_order_action.OrderRef[..order_ref_len].copy_from_slice(&order_ref_bytes[..order_ref_len]);
-
-            // 设置操作引用
+            // 设置操作引用 (OrderActionRef是整数类型)
             let action_ref = get_next_order_ref();
-            let action_ref_bytes = action_ref.as_bytes();
-            let action_ref_len = std::cmp::min(action_ref_bytes.len(), input_order_action.OrderActionRef.len() - 1);
-            input_order_action.OrderActionRef[..action_ref_len].copy_from_slice(&action_ref_bytes[..action_ref_len]);
+            input_order_action.OrderActionRef = action_ref.parse::<i32>().unwrap_or(1);
 
             // 设置操作标志为删除
             input_order_action.ActionFlag = THOST_FTDC_AF_Delete as i8;
@@ -871,16 +857,12 @@ pub fn cancel_order(
 
             // 设置交易所代码（如果提供）
             if let Some(exchange_id) = &cancel_request.exchange_id {
-                let exchange_id_bytes = exchange_id.as_bytes();
-                let exchange_len = std::cmp::min(exchange_id_bytes.len(), input_order_action.ExchangeID.len() - 1);
-                input_order_action.ExchangeID[..exchange_len].copy_from_slice(&exchange_id_bytes[..exchange_len]);
+                copy_str_to_ctp_array(exchange_id, &mut input_order_action.ExchangeID);
             }
 
             // 设置报单编号（如果提供）
             if let Some(order_sys_id) = &cancel_request.order_sys_id {
-                let order_sys_id_bytes = order_sys_id.as_bytes();
-                let sys_id_len = std::cmp::min(order_sys_id_bytes.len(), input_order_action.OrderSysID.len() - 1);
-                input_order_action.OrderSysID[..sys_id_len].copy_from_slice(&order_sys_id_bytes[..sys_id_len]);
+                copy_str_to_ctp_array(order_sys_id, &mut input_order_action.OrderSysID);
             }
 
             // 获取请求ID
@@ -890,9 +872,7 @@ pub fn cancel_order(
                      cancel_request.order_ref, action_ref, request_id);
 
             // 调用CTP API撤销订单
-            let result = unsafe {
-                api.ReqOrderAction(&mut input_order_action, request_id)
-            };
+            let result = api.req_order_action(&mut input_order_action, request_id);
 
             if result == 0 {
                 println!("✅ [DEBUG] ReqOrderAction successful");
@@ -1323,14 +1303,6 @@ fn get_common_instruments() -> Vec<InstrumentInfo> {
 
 // 全局查询请求计数器，用于生成唯一的请求ID
 static mut QUERY_REQUEST_ID: i32 = 1;
-
-// 获取下一个请求ID
-fn get_next_request_id() -> i32 {
-    unsafe {
-        QUERY_REQUEST_ID += 1;
-        QUERY_REQUEST_ID
-    }
-}
 
 // 查询合约信息
 #[command]

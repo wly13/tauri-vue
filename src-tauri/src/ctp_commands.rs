@@ -15,6 +15,13 @@ lazy_static::lazy_static! {
     // 跟踪交易API的登录状态
     static ref TRADER_LOGIN_STATUS: Arc<Mutex<HashMap<String, bool>>> =
         Arc::new(Mutex::new(HashMap::new()));
+    // 全局请求ID计数器
+    static ref REQUEST_ID_COUNTER: Arc<Mutex<i32>> = Arc::new(Mutex::new(1));
+    // 全局订单引用计数器
+    static ref ORDER_REF_COUNTER: Arc<Mutex<i32>> = Arc::new(Mutex::new(1));
+    // 存储会话的登录信息
+    static ref SESSION_LOGIN_INFO: Arc<Mutex<HashMap<String, CtpAccountConfig>>> =
+        Arc::new(Mutex::new(HashMap::new()));
 }
 
 // 数据结构定义
@@ -48,7 +55,21 @@ pub struct OrderRequest {
     pub direction: String, // "0" for buy, "1" for sell
     pub price: f64,
     pub volume: i32,
-    pub order_type: String, // "1" for limit order
+    pub order_type: String, // "1" for limit order, "2" for limit price
+    pub offset_flag: Option<String>, // "0" for open, "1" for close
+    pub hedge_flag: Option<String>, // "1" for speculation, "2" for arbitrage, "3" for hedge
+    pub time_condition: Option<String>, // "1" for IOC, "3" for GFD
+    pub volume_condition: Option<String>, // "1" for any volume
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CancelOrderRequest {
+    pub order_ref: String,
+    pub front_id: Option<i32>,
+    pub session_id: Option<i32>,
+    pub exchange_id: Option<String>,
+    pub order_sys_id: Option<String>,
+    pub instrument_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -223,6 +244,22 @@ fn get_ctp_cache_path(session_id: &str) -> Result<String, String> {
     }
 
     Ok(ctp_cache_dir.to_string_lossy().to_string().replace("\\", "/"))
+}
+
+// 获取下一个请求ID
+fn get_next_request_id() -> i32 {
+    let mut counter = REQUEST_ID_COUNTER.lock().unwrap();
+    let id = *counter;
+    *counter += 1;
+    id
+}
+
+// 获取下一个订单引用
+fn get_next_order_ref() -> String {
+    let mut counter = ORDER_REF_COUNTER.lock().unwrap();
+    let ref_id = *counter;
+    *counter += 1;
+    format!("{}", ref_id)
 }
 
 // 安全的 MD API 创建函数
@@ -583,6 +620,10 @@ pub fn trader_login(
             let mut login_status = TRADER_LOGIN_STATUS.lock().unwrap();
             login_status.insert(session_id.clone(), true);
 
+            // 保存登录信息供后续使用
+            let mut session_info = SESSION_LOGIN_INFO.lock().unwrap();
+            session_info.insert(session_id.clone(), config);
+
             println!("✅ [DEBUG] Trader login successful for session: {}", session_id);
             Ok("Trader login successful".to_string())
         } else {
@@ -622,24 +663,263 @@ pub fn insert_order(
     session_id: String,
     order: OrderRequest,
 ) -> ApiResponse<String> {
-    // 实现下单逻辑
-    ApiResponse {
-        success: true,
-        data: Some(format!("Order inserted for {}", order.instrument_id)),
-        error: None,
+    println!("🔍 [DEBUG] insert_order called with session_id: {}, order: {:?}", session_id, order);
+
+    match std::panic::catch_unwind(|| {
+        // 首先检查登录状态
+        let login_status = TRADER_LOGIN_STATUS.lock().unwrap();
+        if !login_status.get(&session_id).unwrap_or(&false) {
+            return Err("CTP 交易 API 未连接，请先登录".to_string());
+        }
+        drop(login_status); // 释放锁
+
+        let apis = TRADER_APIS.lock().unwrap();
+        let login_info = SESSION_LOGIN_INFO.lock().unwrap();
+
+        if let (Some(api), Some(account_config)) = (apis.get(&session_id), login_info.get(&session_id)) {
+            println!("✅ [DEBUG] Found Trader API and login info for session: {}", session_id);
+
+            // 引入CTP相关类型
+            use tauri_app_vue_lib::*;
+
+            // 创建输入报单结构
+            let mut input_order = CThostFtdcInputOrderField::default();
+
+            // 填充基本信息
+            let broker_id_bytes = account_config.broker_id.as_bytes();
+            let investor_id_bytes = account_config.account.as_bytes();
+            let user_id_bytes = account_config.account.as_bytes();
+            let instrument_id_bytes = order.instrument_id.as_bytes();
+
+            // 安全地复制字符串到固定长度数组
+            let broker_len = std::cmp::min(broker_id_bytes.len(), input_order.BrokerID.len() - 1);
+            let investor_len = std::cmp::min(investor_id_bytes.len(), input_order.InvestorID.len() - 1);
+            let user_len = std::cmp::min(user_id_bytes.len(), input_order.UserID.len() - 1);
+            let instrument_len = std::cmp::min(instrument_id_bytes.len(), input_order.InstrumentID.len() - 1);
+
+            input_order.BrokerID[..broker_len].copy_from_slice(&broker_id_bytes[..broker_len]);
+            input_order.InvestorID[..investor_len].copy_from_slice(&investor_id_bytes[..investor_len]);
+            input_order.UserID[..user_len].copy_from_slice(&user_id_bytes[..user_len]);
+            input_order.InstrumentID[..instrument_len].copy_from_slice(&instrument_id_bytes[..instrument_len]);
+
+            // 设置订单引用
+            let order_ref = get_next_order_ref();
+            let order_ref_bytes = order_ref.as_bytes();
+            let ref_len = std::cmp::min(order_ref_bytes.len(), input_order.OrderRef.len() - 1);
+            input_order.OrderRef[..ref_len].copy_from_slice(&order_ref_bytes[..ref_len]);
+
+            // 设置买卖方向
+            input_order.Direction = if order.direction == "0" {
+                THOST_FTDC_D_Buy as i8
+            } else {
+                THOST_FTDC_D_Sell as i8
+            };
+
+            // 设置价格和数量
+            input_order.LimitPrice = order.price;
+            input_order.VolumeTotalOriginal = order.volume;
+
+            // 设置报单价格条件 (默认限价单)
+            input_order.OrderPriceType = if order.order_type == "1" {
+                THOST_FTDC_OPT_AnyPrice as i8  // 市价单
+            } else {
+                THOST_FTDC_OPT_LimitPrice as i8  // 限价单
+            };
+
+            // 设置开平标志 (默认开仓)
+            input_order.CombOffsetFlag[0] = order.offset_flag
+                .as_deref()
+                .unwrap_or("0")
+                .parse::<u8>()
+                .unwrap_or(THOST_FTDC_OF_Open) as i8;
+
+            // 设置投机套保标志 (默认投机)
+            input_order.CombHedgeFlag[0] = order.hedge_flag
+                .as_deref()
+                .unwrap_or("1")
+                .parse::<u8>()
+                .unwrap_or(THOST_FTDC_HF_Speculation) as i8;
+
+            // 设置有效期类型 (默认当日有效)
+            input_order.TimeCondition = order.time_condition
+                .as_deref()
+                .unwrap_or("3")
+                .parse::<u8>()
+                .unwrap_or(THOST_FTDC_TC_GFD) as i8;
+
+            // 设置成交量类型 (默认任何数量)
+            input_order.VolumeCondition = order.volume_condition
+                .as_deref()
+                .unwrap_or("1")
+                .parse::<u8>()
+                .unwrap_or(THOST_FTDC_VC_AV) as i8;
+
+            // 设置触发条件 (默认立即)
+            input_order.ContingentCondition = THOST_FTDC_CC_Immediately as i8;
+
+            // 设置最小成交量
+            input_order.MinVolume = 1;
+
+            // 设置强平原因 (非强平)
+            input_order.ForceCloseReason = 0; // THOST_FTDC_FCC_NotForceClose
+
+            // 设置自动挂起标志
+            input_order.IsAutoSuspend = 0; // 不自动挂起
+
+            // 获取请求ID
+            let request_id = get_next_request_id();
+
+            println!("📤 [DEBUG] Calling ReqOrderInsert with order_ref: {}, request_id: {}", order_ref, request_id);
+
+            // 调用CTP API插入订单
+            let result = unsafe {
+                api.ReqOrderInsert(&mut input_order, request_id)
+            };
+
+            if result == 0 {
+                println!("✅ [DEBUG] ReqOrderInsert successful");
+                Ok(format!("订单已提交，订单引用: {}", order_ref))
+            } else {
+                println!("❌ [DEBUG] ReqOrderInsert failed with code: {}", result);
+                Err(format!("提交订单失败，错误代码: {}", result))
+            }
+        } else {
+            Err("未找到交易API会话或登录信息".to_string())
+        }
+    }) {
+        Ok(Ok(message)) => ApiResponse {
+            success: true,
+            data: Some(message),
+            error: None,
+        },
+        Ok(Err(error)) => ApiResponse {
+            success: false,
+            data: None,
+            error: Some(error),
+        },
+        Err(_) => ApiResponse {
+            success: false,
+            data: None,
+            error: Some("插入订单时发生系统错误".to_string()),
+        },
     }
 }
 
 #[command]
 pub fn cancel_order(
     session_id: String,
-    order_ref: String,
+    cancel_request: CancelOrderRequest,
 ) -> ApiResponse<String> {
-    // 实现撤单逻辑
-    ApiResponse {
-        success: true,
-        data: Some(format!("Order {} cancelled", order_ref)),
-        error: None,
+    println!("🔍 [DEBUG] cancel_order called with session_id: {}, cancel_request: {:?}", session_id, cancel_request);
+
+    match std::panic::catch_unwind(|| {
+        // 首先检查登录状态
+        let login_status = TRADER_LOGIN_STATUS.lock().unwrap();
+        if !login_status.get(&session_id).unwrap_or(&false) {
+            return Err("CTP 交易 API 未连接，请先登录".to_string());
+        }
+        drop(login_status); // 释放锁
+
+        let apis = TRADER_APIS.lock().unwrap();
+        let login_info = SESSION_LOGIN_INFO.lock().unwrap();
+
+        if let (Some(api), Some(account_config)) = (apis.get(&session_id), login_info.get(&session_id)) {
+            println!("✅ [DEBUG] Found Trader API and login info for session: {}", session_id);
+
+            // 引入CTP相关类型
+            use tauri_app_vue_lib::*;
+
+            // 创建输入报单操作结构
+            let mut input_order_action = CThostFtdcInputOrderActionField::default();
+
+            // 填充基本信息
+            let broker_id_bytes = account_config.broker_id.as_bytes();
+            let investor_id_bytes = account_config.account.as_bytes();
+            let user_id_bytes = account_config.account.as_bytes();
+            let instrument_id_bytes = cancel_request.instrument_id.as_bytes();
+            let order_ref_bytes = cancel_request.order_ref.as_bytes();
+
+            // 安全地复制字符串到固定长度数组
+            let broker_len = std::cmp::min(broker_id_bytes.len(), input_order_action.BrokerID.len() - 1);
+            let investor_len = std::cmp::min(investor_id_bytes.len(), input_order_action.InvestorID.len() - 1);
+            let user_len = std::cmp::min(user_id_bytes.len(), input_order_action.UserID.len() - 1);
+            let instrument_len = std::cmp::min(instrument_id_bytes.len(), input_order_action.InstrumentID.len() - 1);
+            let order_ref_len = std::cmp::min(order_ref_bytes.len(), input_order_action.OrderRef.len() - 1);
+
+            input_order_action.BrokerID[..broker_len].copy_from_slice(&broker_id_bytes[..broker_len]);
+            input_order_action.InvestorID[..investor_len].copy_from_slice(&investor_id_bytes[..investor_len]);
+            input_order_action.UserID[..user_len].copy_from_slice(&user_id_bytes[..user_len]);
+            input_order_action.InstrumentID[..instrument_len].copy_from_slice(&instrument_id_bytes[..instrument_len]);
+            input_order_action.OrderRef[..order_ref_len].copy_from_slice(&order_ref_bytes[..order_ref_len]);
+
+            // 设置操作引用
+            let action_ref = get_next_order_ref();
+            let action_ref_bytes = action_ref.as_bytes();
+            let action_ref_len = std::cmp::min(action_ref_bytes.len(), input_order_action.OrderActionRef.len() - 1);
+            input_order_action.OrderActionRef[..action_ref_len].copy_from_slice(&action_ref_bytes[..action_ref_len]);
+
+            // 设置操作标志为删除
+            input_order_action.ActionFlag = THOST_FTDC_AF_Delete as i8;
+
+            // 设置前置编号和会话编号（如果提供）
+            if let Some(front_id) = cancel_request.front_id {
+                input_order_action.FrontID = front_id;
+            }
+            if let Some(session_id_num) = cancel_request.session_id {
+                input_order_action.SessionID = session_id_num;
+            }
+
+            // 设置交易所代码（如果提供）
+            if let Some(exchange_id) = &cancel_request.exchange_id {
+                let exchange_id_bytes = exchange_id.as_bytes();
+                let exchange_len = std::cmp::min(exchange_id_bytes.len(), input_order_action.ExchangeID.len() - 1);
+                input_order_action.ExchangeID[..exchange_len].copy_from_slice(&exchange_id_bytes[..exchange_len]);
+            }
+
+            // 设置报单编号（如果提供）
+            if let Some(order_sys_id) = &cancel_request.order_sys_id {
+                let order_sys_id_bytes = order_sys_id.as_bytes();
+                let sys_id_len = std::cmp::min(order_sys_id_bytes.len(), input_order_action.OrderSysID.len() - 1);
+                input_order_action.OrderSysID[..sys_id_len].copy_from_slice(&order_sys_id_bytes[..sys_id_len]);
+            }
+
+            // 获取请求ID
+            let request_id = get_next_request_id();
+
+            println!("📤 [DEBUG] Calling ReqOrderAction with order_ref: {}, action_ref: {}, request_id: {}",
+                     cancel_request.order_ref, action_ref, request_id);
+
+            // 调用CTP API撤销订单
+            let result = unsafe {
+                api.ReqOrderAction(&mut input_order_action, request_id)
+            };
+
+            if result == 0 {
+                println!("✅ [DEBUG] ReqOrderAction successful");
+                Ok(format!("撤单请求已提交，订单引用: {}, 操作引用: {}", cancel_request.order_ref, action_ref))
+            } else {
+                println!("❌ [DEBUG] ReqOrderAction failed with code: {}", result);
+                Err(format!("提交撤单失败，错误代码: {}", result))
+            }
+        } else {
+            Err("未找到交易API会话或登录信息".to_string())
+        }
+    }) {
+        Ok(Ok(message)) => ApiResponse {
+            success: true,
+            data: Some(message),
+            error: None,
+        },
+        Ok(Err(error)) => ApiResponse {
+            success: false,
+            data: None,
+            error: Some(error),
+        },
+        Err(_) => ApiResponse {
+            success: false,
+            data: None,
+            error: Some("撤销订单时发生系统错误".to_string()),
+        },
     }
 }
 
